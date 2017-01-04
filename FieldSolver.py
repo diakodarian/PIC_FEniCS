@@ -5,8 +5,11 @@
 # on the unit square with periodic boundary conditions
 import numpy as np
 from dolfin import *
+from mpi4py import MPI as pyMPI
 
-def periodic_Solver(f, mesh, V, V_g):
+comm = pyMPI.COMM_WORLD
+
+def periodic_solver(f, mesh, V, V_g):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -75,7 +78,7 @@ def periodic_Solver(f, mesh, V, V_g):
 
     return uh, grad_u
 
-def dirichlet_Solver(f, V, V_g, bc):
+def dirichlet_solver(f, V, V_g, bc):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -128,7 +131,7 @@ if __name__ == '__main__':
         V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
         V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
 
-        phi, E, V = solver(f, mesh, V, V_g)
+        phi, E = periodic_solver(f, mesh, V, V_g)
 
         grad_u_x, grad_u_y = E.split(deepcopy=True)  # extract components
 
@@ -170,10 +173,11 @@ if __name__ == '__main__':
         bc = DirichletBC(V, u0, boundary)
 
         f = Source1(degree=1)
-        phi, E = dirichlet_Solver(f, V, V_g, bc)
+        phi, E = dirichlet_solver(f, V, V_g, bc)
         plot(phi)
         plot(phi.function_space().mesh())
         plot(E)
         interactive()
 
     run_Dirichlet_solver()
+    #run_periodic_solver()
