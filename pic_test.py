@@ -1,5 +1,6 @@
 from LagrangianParticles_test import LagrangianParticles, RandomCircle
 from FieldSolver import periodic_solver, dirichlet_solver
+from particleDistribution import speed_distribution
 import matplotlib.pyplot as plt
 #from dolfin import VectorFunctionSpace, interpolate, RectangleMesh, Expression, Point
 from dolfin import *
@@ -11,7 +12,7 @@ comm = pyMPI.COMM_WORLD
 # Simulation parameters:
 d = 2          # Space dimension
 M = [64, 64]   # Number of grid points
-N = 10          # Number of particles
+N = 100          # Number of particles
 tot_time = 20  # Total simulation time
 dt = 0.001     # time step
 # Physical parameters
@@ -80,6 +81,9 @@ mu, sigma = 0., 1. # mean and standard deviation
 initial_velocities = np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_particles),
                                 (n_particles, d))
 
+speed_distribution(initial_velocities, d, alpha_e)
+
+sys.exit()
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities)
 
