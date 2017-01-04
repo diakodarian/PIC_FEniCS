@@ -71,7 +71,7 @@ else:
     bc = DirichletBC(V, u0, boundary)
 
 # Initial particle positions
-initial_positions = RandomCircle([0.5, 0.75], 0.15).generate([N, N])
+initial_positions = RandomCircle([0.5, 0.5], 0.15).generate([N, N])
 n_particles = len(initial_positions)
 if comm.Get_rank() == 0:
     print "n_particles: ", n_particles
@@ -83,7 +83,7 @@ initial_velocities = np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_partic
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities)
 
-f = interpolate(Expression(("0.0", "0.0"), degree=1), V_g)
+f = Function(V)
 
 fig = plt.figure()
 lp.scatter(fig)
@@ -98,9 +98,7 @@ save = True
 for step in range(tot_time):
     if comm.Get_rank() == 0:
         print "t: ", step
-    f_2d = lp.charge_density(f)
-    rho_x, rho_y = f_2d.split(deepcopy=True)
-    rho = rho_x#project(rho_x, V)
+    rho = lp.charge_density(f)
     if periodic_field_solver:
         phi, E = periodic_solver(rho, mesh, V, V_g)
     else:

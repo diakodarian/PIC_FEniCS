@@ -8,6 +8,7 @@ from dolfin import *
 from mpi4py import MPI as pyMPI
 
 comm = pyMPI.COMM_WORLD
+rank = comm.Get_rank()
 
 def periodic_solver(f, mesh, V, V_g):
 
@@ -85,16 +86,18 @@ def dirichlet_solver(f, V, V_g, bc):
     v = TestFunction(V)
     a = dot(grad(u), grad(v))*dx
     L = f*v*dx
-
+    A, b = assemble_system(a, L, bc)
     # Compute solution
     u = Function(V)
-    solve(a == L, u, bc)
+    solver = KrylovSolver(A, "cg", "petsc_amg")
+    solver.solve(u.vector(), b)
 
     # Compute the gradient
     grad_u = Function(V_g)
     grad_u = project(grad(u), V_g)
     return u, grad_u
 if __name__ == '__main__':
+    import time
 
     def run_periodic_solver():
         # The mesh
@@ -161,7 +164,7 @@ if __name__ == '__main__':
                 values[0] = x[0]*exp(-pow(pow(2*(x[0]-0.5),2)+pow(2*(x[1]-0.5),2),2))
 
         # Create mesh and finite element
-        mesh = UnitSquareMesh(32, 32)
+        mesh = UnitSquareMesh(200, 200)
         V = FunctionSpace(mesh, "CG", 1)
         V_g = VectorFunctionSpace(mesh, 'CG', 1)
 
@@ -174,10 +177,17 @@ if __name__ == '__main__':
 
         f = Source1(degree=1)
         phi, E = dirichlet_solver(f, V, V_g, bc)
-        plot(phi)
-        plot(phi.function_space().mesh())
-        plot(E)
-        interactive()
 
+        File("data/phi.pvd") << phi
+        File("data/partitions.pvd") << CellFunction("size_t", mesh, rank)
+
+    tic = time.time()
     run_Dirichlet_solver()
+    toc = time.time()
+    if rank == 0:
+        seconds = toc-tic
+        print "Total run time: %d seconds " %seconds
+        m, s = divmod(seconds, 60)
+        h, m = divmod(m, 60)
+        print "Total run time: %d:%02d:%02d" % (h, m, s)
     #run_periodic_solver()

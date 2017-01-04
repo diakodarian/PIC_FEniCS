@@ -248,16 +248,19 @@ class LagrangianParticles:
                 d = self.mesh.geometry().dim()
                 dof_coordinates.resize((n, d))
 
+                f_dofs = f.function_space().dofmap().dofs()
                 x_dofs = self.V.sub(0).dofmap().dofs()
                 y_dofs = self.V.sub(1).dofmap().dofs()
-                u = f.vector().array()
-                for x_dof, y_dof in zip(x_dofs, y_dofs):
+                for i in range(len(f_dofs)):
+                    x_dof = x_dofs[i]
+                    y_dof = y_dofs[i]
+                    f_dof = f_dofs[i]
                     xx = dof_coordinates[x_dof]
                     yy = dof_coordinates[y_dof]
                     for j in range(3):
                         if all(vertices[j][ii] == xx[ii] for ii in range(len(xx))):
-                            u[x_dof] += self.basis_matrix[j,0]
-                f.vector()[:] = u
+                            f.vector()[f_dof] = f.vector()[f_dof][0] + self.basis_matrix[j,0]
+
         return f
 
     def step(self, E, dt):
