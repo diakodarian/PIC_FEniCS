@@ -209,7 +209,7 @@ class LagrangianParticles:
                 n_duplicit = len(np.where(all_found > 1)[0])
                 print 'There are %d duplicit particles' % n_duplicit
 
-    def BarycentricInterpolation(self, v, p):
+    def barycentric_Interpolation(self, v, p):
         eps = 1e-14
         d = v[0]*(v[3]-v[5]) - \
             v[2]*(v[1]-v[5]) + \
