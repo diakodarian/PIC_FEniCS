@@ -71,9 +71,9 @@ def periodic_solver(f, mesh, V, V_g):
         null_space.orthogonalize(b);
 
         # Solve
-        solver.solve(grad_u.vector(), b)
+        solver.solve(-1*grad_u.vector(), b)
     else:
-        grad_u = project(grad(uh), V_g)
+        grad_u = project(-1*grad(uh), V_g)
 
     #grad_u_x, grad_u_y = grad_u.split(deepcopy=True)  # extract component
 
@@ -94,8 +94,9 @@ def dirichlet_solver(f, V, V_g, bc):
 
     # Compute the gradient
     grad_u = Function(V_g)
-    grad_u = project(grad(u), V_g)
+    grad_u = project(-1*grad(u), V_g)
     return u, grad_u
+
 if __name__ == '__main__':
     import time
 

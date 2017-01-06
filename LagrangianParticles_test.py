@@ -7,7 +7,7 @@
 This module contains functionality for Lagrangian tracking of particles with
 DOLFIN
 '''
-
+from __future__ import print_function
 import dolfin as df
 import numpy as np
 import copy
@@ -172,7 +172,6 @@ class LagrangianParticles:
             # particles
             properties = properties_d.keys()
             particle_properties = dict((key, 0) for key in properties)
-
             has_properties = True
         else:
             has_properties = False
@@ -204,10 +203,10 @@ class LagrangianParticles:
             # Print particle info
             if self.__debug:
                 for i in missing:
-                    print 'Missing', list_of_particles[i].position
+                    print('Missing', list_of_particles[i].position)
 
                 n_duplicit = len(np.where(all_found > 1)[0])
-                print 'There are %d duplicit particles' % n_duplicit
+                print('There are %d duplicit particles' % n_duplicit)
 
     def barycentric_Interpolation(self, v, p):
         eps = 1e-14
@@ -228,21 +227,35 @@ class LagrangianParticles:
 
         raise ValueError('Singular system, no solution.')
 
+    def energies(self):
+        e = 0
+        for cwp in self.particle_map.itervalues():
+            for particle in cwp.particles:
+                e += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
+        return e
+
     def charge_density(self, f):
         'Particle charge weigthed at nodes'
         for cwp in self.particle_map.itervalues():
             for particle in cwp.particles:
                 x = particle.position
-                # print "x: ", x
+                # print("x: ", x)
                 # Compute velocity at position x
                 self.element.evaluate_basis_all(self.basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
+                c = cwp.entities(0)
+                vv = self.mesh.coordinates()[c]
+                #print("c: ", c)
+                #print("vertexes: ", vv)
                 vertices = []
-                for i in range(3):
-                    vertices.append(cwp.get_vertex_coordinates()[i*2:(i+1)*2])
-                #print "vertices: ", vertices
+                #print("dim: ", self.dim)
+                for i in range(len(c)):
+                    vertices.append(cwp.get_vertex_coordinates()[i*self.dim:(i+1)*self.dim])
+                # print("get_vertex_coordinates: ", cwp.get_vertex_coordinates())
+                #print("vertices: ", vertices)
+                # print("Cell volume: ", cwp.volume())
                 dof_coordinates = self.V.tabulate_dof_coordinates()
                 n = self.V.dim()
                 d = self.mesh.geometry().dim()
@@ -257,13 +270,13 @@ class LagrangianParticles:
                     f_dof = f_dofs[i]
                     xx = dof_coordinates[x_dof]
                     yy = dof_coordinates[y_dof]
-                    for j in range(3):
+                    for j in range(len(c)):
                         if all(vertices[j][ii] == xx[ii] for ii in range(len(xx))):
-                            f.vector()[f_dof] = f.vector()[f_dof][0] + self.basis_matrix[j,0]
+                            f.vector()[f_dof] = f.vector()[f_dof][0] + particle.properties['q']*self.basis_matrix[j,0]/cwp.volume()
 
         return f
 
-    def step(self, E, dt):
+    def step(self, E, t_step, dt):
         'Move particles by leap frog'
         start = df.Timer('shift')
         for cwp in self.particle_map.itervalues():
@@ -273,7 +286,7 @@ class LagrangianParticles:
                        cwp,
                        cwp.get_vertex_coordinates(),
                        cwp)
-            for particle in cwp.particles:
+            for particle in cwp.particles: #i,particle in enumerate(cwp.particles)
                 x = particle.position
                 u = particle.velocity
                 # Compute velocity at position x
@@ -283,7 +296,10 @@ class LagrangianParticles:
                                                 cwp.orientation())
                 #l = self.BarycentricInterpolation(cwp.get_vertex_coordinates(), x)
                 # leap frog step
-                u[:] = u[:] + dt*np.dot(self.coefficients, self.basis_matrix)[:]
+                if t_step == 0:
+                    u[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                else:
+                    u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 x[:] = x[:] + dt*u[:]
         # Recompute the map
         stop_shift = start.stop()
@@ -515,4 +531,26 @@ class RandomCircle(RandomGenerator):
         RandomGenerator.__init__(self, domain,
                                  lambda x: sqrt((x[0]-center[0])**2 +
                                                 (x[1]-center[1])**2) < radius
+                                 )
+
+class RandomBox(RandomGenerator):
+    def __init__(self, ll, ur):
+        print(ll)
+        print(ur)
+        ax, ay, az = ll.x(), ll.y(), ll.z()
+        bx, by, bz = ur.x(), ur.y(), ur.z()
+        assert ax < bx and ay < by and az < bz
+        RandomGenerator.__init__(self, [[ax, bx], [ay, by], [az, bz]], lambda x: True)
+
+
+class RandomSphere(RandomGenerator):
+    def __init__(self, center, radius):
+        assert radius > 0
+        domain = [[center[0]-radius, center[0]+radius],
+                  [center[1]-radius, center[1]+radius],
+                  [center[2]-radius, center[2]+radius]]
+        RandomGenerator.__init__(self, domain,
+                                 lambda x: sqrt((x[0]-center[0])**2 +
+                                                (x[1]-center[1])**2+
+                                                (x[2]-center[2])**2) < radius
                                  )
