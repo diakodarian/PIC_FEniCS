@@ -13,6 +13,7 @@ import numpy as np
 import copy
 from mpi4py import MPI as pyMPI
 from collections import defaultdict
+from itertools import product
 
 # Disable printing
 __DEBUG__ = False
@@ -437,6 +438,67 @@ class LagrangianParticles:
             ax.legend(loc='best')
             ax.axis([0, 1, 0, 1])
 
+    def scatter_new(self, fig, skip=1):
+        'Scatter plot of all particles on process 0'
+        import matplotlib.colors as colors
+        import matplotlib.cm as cmx
+
+        ax = fig.gca()
+
+        p_map = self.particle_map
+        all_particles = np.zeros(self.num_processes, dtype='I')
+        my_particles = p_map.total_number_of_particles()
+        # Root learns about count of particles on all processes
+        comm.Gather(np.array([my_particles], 'I'), all_particles, root=0)
+
+        # Slaves should send to master
+        if self.myrank > 0:
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    p.send(0)
+        else:
+            # Receive on master
+            received_ions = defaultdict(list)
+            received_electrons = defaultdict(list)
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    if p.properties['q'] == 8:
+                        received_ions[0].append(copy.copy(p.position))
+                    elif p.properties['q'] == -8:
+                        received_electrons[0].append(copy.copy(p.position))
+            for proc in self.other_processes:
+                # Receive all_particles[proc]
+                for j in range(all_particles[proc]):
+                    self.particle0.recv(proc)
+                    if self.particle0.properties['q'] == 8:
+                        received_ions[proc].append(copy.copy(self.particle0.position))
+                    elif self.particle0.properties['q'] == -8:
+                        received_electrons[proc].append(copy.copy(self.particle0.position))
+
+            cmap = cmx.get_cmap('viridis')
+            cnorm = colors.Normalize(vmin=0, vmax=self.num_processes)
+            scalarMap = cmx.ScalarMappable(norm=cnorm, cmap=cmap)
+
+            for proc in received_ions:
+                # Plot only if there is something to plot
+                ions = received_ions[proc]
+                electrons = received_electrons[proc]
+                if (len(ions) > 0 and len(electrons) > 0):
+                    xy_ions = np.array(ions)
+                    xy_electrons = np.array(electrons)
+                    ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
+                               label='%d' % proc,
+                               marker='*',
+                               c=scalarMap.to_rgba(proc),
+                               edgecolor='none')
+                    ax.scatter(xy_electrons[::skip, 0], xy_electrons[::skip, 1],
+                               label='%d' % proc,
+                               marker = 'o',
+                               c=scalarMap.to_rgba(proc),
+                               edgecolor='none')
+            ax.legend(loc='best')
+            ax.axis([0, 1, 0, 1])
+
     def bar(self, fig):
         'Bar plot of particle distribution.'
         ax = fig.gca()
@@ -455,6 +517,56 @@ class LagrangianParticles:
             return np.sum(all_particles)
         else:
             return None
+
+    def write_to_file(self, to_file):
+
+        p_map = self.particle_map
+        all_particles = np.zeros(self.num_processes, dtype='I')
+        my_particles = p_map.total_number_of_particles()
+        # Root learns about count of particles on all processes
+        comm.Gather(np.array([my_particles], 'I'), all_particles, root=0)
+
+        # Slaves should send to master
+        if self.myrank > 0:
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    p.send(0)
+        else:
+            # Receive on master
+            received_ions = defaultdict(list)
+            received_electrons = defaultdict(list)
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    if p.properties['q'] == 8:
+                        received_ions[0].append(copy.copy(p.position))
+                    elif p.properties['q'] == -8:
+                        received_electrons[0].append(copy.copy(p.position))
+            for proc in self.other_processes:
+                # Receive all_particles[proc]
+                for j in range(all_particles[proc]):
+                    self.particle0.recv(proc)
+                    if self.particle0.properties['q'] == 8:
+                        received_ions[proc].append(copy.copy(self.particle0.position))
+                    elif self.particle0.properties['q'] == -8:
+                        received_electrons[proc].append(copy.copy(self.particle0.position))
+
+            for proc in received_ions:
+                # Plot only if there is something to plot
+                ions = received_ions[proc]
+                electrons = received_electrons[proc]
+                if (len(ions) > 0 and len(electrons) > 0):
+                    xy_ions = np.array(ions)
+                    xy_electrons = np.array(electrons)
+                    d = xy_ions.shape[1]
+                    if d == 2:
+                        for p1, p2 in map(None,xy_ions, xy_electrons):
+                            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
+                            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
+                    elif d == 3:
+                        for p1, p2 in map(None,xy_ions, xy_electrons):
+                            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
+                            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
+
 
 # Simple initializers for particle positions
 

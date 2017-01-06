@@ -12,10 +12,10 @@ import sys
 comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
-d = 2              # Space dimension
+d = 3              # Space dimension
 M = [10, 10, 10]   # Number of grid points
-N_e = 3          # Number of electrons
-N_i = 3         # Number of ions
+N_e = 4          # Number of electrons
+N_i = 4         # Number of ions
 tot_time = 10  # Total simulation time
 dt = 0.001     # time step
 
@@ -85,10 +85,10 @@ else:
 random_domain = 'box' # 'sphere' or 'box'
 if d == 3:
     if random_domain == 'shpere':
-        initial_electon_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_e, N_e, N_e])
+        initial_electron_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_e, N_e, N_e])
         initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_i, N_i, N_i])
     elif random_domain == 'box':
-        initial_electon_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_e, N_e, N_e])
+        initial_electron_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_e, N_e, N_e])
         initial_ion_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_i, N_i, N_i])
 if d == 2:
     if random_domain == 'shpere':
@@ -163,12 +163,23 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 f = Function(V)
 
 fig = plt.figure()
-lp.scatter(fig)
+lp.scatter_new(fig)
 fig.suptitle('Initial')
 
 if comm.Get_rank() == 0:
     fig.show()
-
+    to_file = open('data.xyz', 'w')
+    to_file.write("%d\n" %n_total_particles)
+    to_file.write("PIC \n")
+    for p1, p2 in map(None,initial_ion_positions, initial_electron_positions):
+        if d == 2:
+            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
+            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
+        elif d == 3:
+            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
+            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
+# to_file.close()
+# sys.exit()
 plt.ion()
 save = True
 
@@ -185,9 +196,12 @@ for i, step in enumerate(range(tot_time)):
 
     lp.step(E, i, dt=dt)
 
+    # Write to file
+    lp.write_to_file(to_file)
+
     Ek.append(lp.energies())
     t.append(step*dt)
-    lp.scatter(fig)
+    lp.scatter_new(fig)
     fig.suptitle('At step %d' % step)
     fig.canvas.draw()
 
@@ -196,6 +210,7 @@ for i, step in enumerate(range(tot_time)):
     fig.clf()
 
 if comm.Get_rank() == 0:
+    to_file.close()
     plot(phi, interactive=True)
     plot(rho, interactive=True)
     plot(E, interactive=True)
