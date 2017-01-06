@@ -1,5 +1,5 @@
 from __future__ import print_function
-from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomBox, RandomSphere
+from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomRectangle, RandomBox, RandomSphere
 from FieldSolver import periodic_solver, dirichlet_solver
 from particleDistribution import speed_distribution
 import matplotlib.pyplot as plt
@@ -82,13 +82,21 @@ else:
     bc = DirichletBC(V, u0, boundary)
 
 # Initial particle positions
+random_domain = 'box' # 'sphere' or 'box'
 if d == 3:
-    initial_electon_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_e, N_e, N_e])
-    initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_i, N_i, N_i])
+    if random_domain == 'shpere':
+        initial_electon_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_e, N_e, N_e])
+        initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_i, N_i, N_i])
+    elif random_domain == 'box':
+        initial_electon_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_e, N_e, N_e])
+        initial_ion_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_i, N_i, N_i])
 if d == 2:
-    initial_electron_positions = RandomCircle([0.5,0.5], 0.15).generate([N_e, N_e])
-    initial_ion_positions = RandomCircle([0.5,0.5], 0.15).generate([N_i, N_i])
-
+    if random_domain == 'shpere':
+        initial_electron_positions = RandomCircle([0.5,0.5], 0.15).generate([N_e, N_e])
+        initial_ion_positions = RandomCircle([0.5,0.5], 0.15).generate([N_i, N_i])
+    elif random_domain == 'box':
+        initial_electron_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_e, N_e])
+        initial_ion_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_i, N_i])
 
 initial_positions = []
 initial_positions.extend(initial_electron_positions)

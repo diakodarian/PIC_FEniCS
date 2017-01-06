@@ -517,8 +517,8 @@ class RandomGenerator(object):
 
 class RandomRectangle(RandomGenerator):
     def __init__(self, ll, ur):
-        ax, ay = ll.x(), ll.y()
-        bx, by = ur.x(), ur.y()
+        ax, ay = ll[0], ll[1]
+        bx, by = ur[0], ur[1]
         assert ax < bx and ay < by
         RandomGenerator.__init__(self, [[ax, bx], [ay, by]], lambda x: True)
 
@@ -535,10 +535,8 @@ class RandomCircle(RandomGenerator):
 
 class RandomBox(RandomGenerator):
     def __init__(self, ll, ur):
-        print(ll)
-        print(ur)
-        ax, ay, az = ll.x(), ll.y(), ll.z()
-        bx, by, bz = ur.x(), ur.y(), ur.z()
+        ax, ay, az = ll[0], ll[1], ll[2]
+        bx, by, bz = ur[0], ur[1], ur[2]
         assert ax < bx and ay < by and az < bz
         RandomGenerator.__init__(self, [[ax, bx], [ay, by], [az, bz]], lambda x: True)
 
