@@ -373,13 +373,16 @@ class LagrangianParticles:
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
-            print("position: ", x)   
-            for j in range(len(x)):
-                if x[j] < 0.0:
-                    x[j] += 1.0
-                if x[j] > 1.0:
-                    x[j] -= 1.0
-            print("position: ", x)
+            print("position befor: ", x)
+            for dim in range(len(x)):
+                l_min = self.mesh.coordinates()[:,dim].min()
+                l_max = self.mesh.coordinates()[:,dim].max()
+                l = l_max - l_min
+                if x[dim] < l_min:
+                    x[dim] += l
+                if x[dim] > l_max:
+                    x[dim] -= l
+            print("position after: ", x)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)

@@ -13,7 +13,7 @@ comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
 d = 3              # Space dimension
-M = [10, 10, 10]   # Number of grid points
+M = [10,10,10]   # Number of grid points
 N_e = 5          # Number of electrons
 N_i = 5         # Number of ions
 tot_time = 20  # Total simulation time
@@ -37,10 +37,24 @@ q_i = Z*e  # Electric charge - ions
 w = rho_p/N_e
 
 # Create the mesh
+# Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
+l1 = -2.
+l2 = 2.
+w1 = -1.
+w2 = 1.
+h1 = -1.
+h2 = 1.
+mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
 if d == 3:
-    mesh = UnitCubeMesh(M[0], M[1], M[2])
+    if mesh_dimensions == 'Unit_dimensions':
+        mesh = UnitCubeMesh(M[0], M[1], M[2])
+    if mesh_dimensions == 'Arbitrary_dimensions':
+        mesh = BoxMesh(Point(l1,w1,h1), Point(l2,w2,h2), M[0], M[1], M[2])
 if d == 2:
-    mesh = RectangleMesh(Point(0, 0), Point(1, 1), M[0], M[1])
+    if mesh_dimensions == 'Unit_dimensions':
+        mesh = UnitSquareMesh(M[0], M[1])
+    if mesh_dimensions == 'Arbitrary_dimensions':
+        mesh = RectangleMesh(Point(l1,w1), Point(l2,w2), M[0], M[1])
 
 # Create boundary conditions
 periodic_field_solver = False # Periodic or Dirichlet bcs
@@ -82,21 +96,21 @@ else:
     bc = DirichletBC(V, u0, boundary)
 
 # Initial particle positions
-random_domain = 'box' # 'sphere' or 'box'
+random_domain = 'box' # Options: 'sphere' or 'box'
 if d == 3:
     if random_domain == 'shpere':
         initial_electron_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_e, N_e, N_e])
         initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_i, N_i, N_i])
     elif random_domain == 'box':
-        initial_electron_positions = RandomBox([0.,0.,0.], [1.,1.,1.]).generate([N_e, N_e, N_e])
-        initial_ion_positions = RandomBox([0.,0.,0.], [1.,1.,1.]).generate([N_i, N_i, N_i])
+        initial_electron_positions = RandomBox([l1,w1,h1], [l2,w2,h2]).generate([N_e, N_e, N_e])
+        initial_ion_positions = RandomBox([l1,w1,h1], [l2,w2,h2]).generate([N_i, N_i, N_i])
 if d == 2:
     if random_domain == 'shpere':
         initial_electron_positions = RandomCircle([0.5,0.5], 0.5).generate([N_e, N_e])
         initial_ion_positions = RandomCircle([0.5,0.5], 0.5).generate([N_i, N_i])
     elif random_domain == 'box':
-        initial_electron_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_e, N_e])
-        initial_ion_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_i, N_i])
+        initial_electron_positions = RandomRectangle([l1,w1], [l2,w2]).generate([N_e, N_e])
+        initial_ion_positions = RandomRectangle([l1,w1], [l2,w2]).generate([N_i, N_i])
 
 initial_positions = []
 initial_positions.extend(initial_electron_positions)
