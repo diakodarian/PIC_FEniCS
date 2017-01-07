@@ -370,6 +370,16 @@ class LagrangianParticles:
                     list_of_escaped_particles.append(copy.deepcopy(self.particle0))
                     list_of_escaped_particles_velocity.append(copy.deepcopy(self.particle0.velocity))
 
+        for i in range(len(list_of_escaped_particles)):
+            p = list_of_escaped_particles[i]
+            x = p.position
+            print("position: ", x)   
+            for j in range(len(x)):
+                if x[j] < 0.0:
+                    x[j] += 1.0
+                if x[j] > 1.0:
+                    x[j] -= 1.0
+            print("position: ", x)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)

@@ -14,9 +14,9 @@ comm = pyMPI.COMM_WORLD
 # Simulation parameters:
 d = 3              # Space dimension
 M = [10, 10, 10]   # Number of grid points
-N_e = 4          # Number of electrons
-N_i = 4         # Number of ions
-tot_time = 10  # Total simulation time
+N_e = 5          # Number of electrons
+N_i = 5         # Number of ions
+tot_time = 20  # Total simulation time
 dt = 0.001     # time step
 
 # Physical parameters
@@ -85,15 +85,15 @@ else:
 random_domain = 'box' # 'sphere' or 'box'
 if d == 3:
     if random_domain == 'shpere':
-        initial_electron_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_e, N_e, N_e])
-        initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.15).generate([N_i, N_i, N_i])
+        initial_electron_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_e, N_e, N_e])
+        initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_i, N_i, N_i])
     elif random_domain == 'box':
-        initial_electron_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_e, N_e, N_e])
-        initial_ion_positions = RandomBox([0.5,0.5,0.5], [0.6,0.6,0.6]).generate([N_i, N_i, N_i])
+        initial_electron_positions = RandomBox([0.,0.,0.], [1.,1.,1.]).generate([N_e, N_e, N_e])
+        initial_ion_positions = RandomBox([0.,0.,0.], [1.,1.,1.]).generate([N_i, N_i, N_i])
 if d == 2:
     if random_domain == 'shpere':
-        initial_electron_positions = RandomCircle([0.5,0.5], 0.15).generate([N_e, N_e])
-        initial_ion_positions = RandomCircle([0.5,0.5], 0.15).generate([N_i, N_i])
+        initial_electron_positions = RandomCircle([0.5,0.5], 0.5).generate([N_e, N_e])
+        initial_ion_positions = RandomCircle([0.5,0.5], 0.5).generate([N_i, N_i])
     elif random_domain == 'box':
         initial_electron_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_e, N_e])
         initial_ion_positions = RandomRectangle([0.,0.], [1.,1.]).generate([N_i, N_i])
@@ -111,9 +111,9 @@ if comm.Get_rank() == 0:
     print("Total number of particles: ", n_total_particles)
     print("Total number of electrons: ", n_electrons)
     print("Total number of ions: ", n_ions)
-    print("Position: electrons: ", initial_electron_positions)
-    print("Position: ions: ", initial_ion_positions)
-    print("all positions: ", initial_positions)
+    # print("Position: electrons: ", initial_electron_positions)
+    # print("Position: ions: ", initial_ion_positions)
+    # print("all positions: ", initial_positions)
 
 # Initial Gaussian distribution of velocity components
 mu, sigma = 0., 1. # mean and standard deviation
@@ -154,8 +154,8 @@ for i in range(n_ions):
     properties.setdefault(key, [])
     properties[key].append(m_i)
 
-print("length of properties: ", len(properties))
-print("properties: ", properties)
+# print("length of properties: ", len(properties))
+# print("properties: ", properties)
 
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities, properties)
@@ -178,8 +178,6 @@ if comm.Get_rank() == 0:
         elif d == 3:
             to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
             to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
-# to_file.close()
-# sys.exit()
 plt.ion()
 save = True
 
