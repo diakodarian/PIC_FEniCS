@@ -1,6 +1,7 @@
 from __future__ import print_function
 from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomRectangle, RandomBox, RandomSphere
 from FieldSolver import periodic_solver, dirichlet_solver
+from initial_conditions import initial_conditions
 from particleDistribution import speed_distribution
 import matplotlib.pyplot as plt
 #from dolfin import VectorFunctionSpace, interpolate, RectangleMesh, Expression, Point
@@ -12,10 +13,10 @@ import sys
 comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
-d = 3              # Space dimension
+d = 2              # Space dimension
 M = [10,10,10]   # Number of grid points
-N_e = 5          # Number of electrons
-N_i = 5         # Number of ions
+N_e = 50          # Number of electrons
+N_i = 50         # Number of ions
 tot_time = 20  # Total simulation time
 dt = 0.001     # time step
 
@@ -38,12 +39,13 @@ w = rho_p/N_e
 
 # Create the mesh
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-l1 = -2.
-l2 = 2.
+l1 = -1.
+l2 = 1.
 w1 = -1.
 w2 = 1.
 h1 = -1.
 h2 = 1.
+l = [l1, l2, w1, w2, h1, h2]
 mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
 if d == 3:
     if mesh_dimensions == 'Unit_dimensions':
@@ -57,7 +59,7 @@ if d == 2:
         mesh = RectangleMesh(Point(l1,w1), Point(l2,w2), M[0], M[1])
 
 # Create boundary conditions
-periodic_field_solver = False # Periodic or Dirichlet bcs
+periodic_field_solver = True # Periodic or Dirichlet bcs
 if periodic_field_solver:
     class PeriodicBoundary(SubDomain):
 
@@ -95,81 +97,12 @@ else:
 
     bc = DirichletBC(V, u0, boundary)
 
-# Initial particle positions
+# Initial particle positions and velocities
 random_domain = 'box' # Options: 'sphere' or 'box'
-if d == 3:
-    if random_domain == 'shpere':
-        initial_electron_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_e, N_e, N_e])
-        initial_ion_positions = RandomSphere([0.5,0.5,0.5], 0.5).generate([N_i, N_i, N_i])
-    elif random_domain == 'box':
-        initial_electron_positions = RandomBox([l1,w1,h1], [l2,w2,h2]).generate([N_e, N_e, N_e])
-        initial_ion_positions = RandomBox([l1,w1,h1], [l2,w2,h2]).generate([N_i, N_i, N_i])
-if d == 2:
-    if random_domain == 'shpere':
-        initial_electron_positions = RandomCircle([0.5,0.5], 0.5).generate([N_e, N_e])
-        initial_ion_positions = RandomCircle([0.5,0.5], 0.5).generate([N_i, N_i])
-    elif random_domain == 'box':
-        initial_electron_positions = RandomRectangle([l1,w1], [l2,w2]).generate([N_e, N_e])
-        initial_ion_positions = RandomRectangle([l1,w1], [l2,w2]).generate([N_i, N_i])
-
-initial_positions = []
-initial_positions.extend(initial_electron_positions)
-initial_positions.extend(initial_ion_positions)
-initial_positions = np.array(initial_positions)
-
-n_ions = len(initial_ion_positions)
-n_electrons = len(initial_electron_positions)
-n_total_particles = len(initial_positions)
-
-if comm.Get_rank() == 0:
-    print("Total number of particles: ", n_total_particles)
-    print("Total number of electrons: ", n_electrons)
-    print("Total number of ions: ", n_ions)
-    # print("Position: electrons: ", initial_electron_positions)
-    # print("Position: ions: ", initial_ion_positions)
-    # print("all positions: ", initial_positions)
-
-# Initial Gaussian distribution of velocity components
-mu, sigma = 0., 1. # mean and standard deviation
-initial_electron_velocities = np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_electrons),
-                                (n_electrons, d))
-initial_ion_velocities = np.reshape(alpha_i * np.random.normal(mu, sigma, d*n_ions),
-                                (n_ions, d))
-
-initial_velocities = []
-initial_velocities.extend(initial_electron_velocities)
-initial_velocities.extend(initial_ion_velocities)
-initial_velocities = np.array(initial_velocities)
-
-#speed_distribution(initial_velocities, d, alpha_e)
-
-# Add charge of particles to properties
-properties = {}
-key = 'q'
-properties.setdefault(key, [])
-properties[key].append(w*q_e)
-
-for i in range(n_electrons-1):
-    properties.setdefault(key, [])
-    properties[key].append(w*q_e)
-for i in range(n_ions):
-    properties.setdefault(key, [])
-    properties[key].append(w*q_i)
-
-# Add mass of particles to properties
-key = 'm'
-properties.setdefault(key, [])
-properties[key].append(m_e)
-
-for i in range(n_electrons-1):
-    properties.setdefault(key, [])
-    properties[key].append(m_e)
-for i in range(n_ions):
-    properties.setdefault(key, [])
-    properties[key].append(m_i)
-
-# print("length of properties: ", len(properties))
-# print("properties: ", properties)
+initial_type = 'Langmuir_waves' # 'Langmuir_waves' or 'random'
+initial_positions, initial_velocities, properties, n_electrons = \
+initial_conditions(N_e, N_i, l, d, w, q_e, q_i, m_e, m_i,
+                       alpha_e, alpha_i, random_domain, initial_type)
 
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities, properties)
@@ -183,9 +116,10 @@ fig.suptitle('Initial')
 if comm.Get_rank() == 0:
     fig.show()
     to_file = open('data.xyz', 'w')
-    to_file.write("%d\n" %n_total_particles)
+    to_file.write("%d\n" %len(initial_positions))
     to_file.write("PIC \n")
-    for p1, p2 in map(None,initial_ion_positions, initial_electron_positions):
+    for p1, p2 in map(None,initial_positions[n_electrons:],
+                            initial_positions[:n_electrons]):
         if d == 2:
             to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
             to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
