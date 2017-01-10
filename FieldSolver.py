@@ -16,14 +16,14 @@ def periodic_solver(f, mesh, V, V_e):
     u = TrialFunction(V)
     v = TestFunction(V)
 
-    a = dot(grad(u), grad(v))*dx
+    a = inner(grad(u), grad(v))*dx
     L = f*v*dx
 
     A, b = assemble_system(a, L)
     uh = Function(V)
 
     # Create Krylov solver
-    solver = PETScKrylovSolver("cg")
+    solver = PETScKrylovSolver('cg', 'hypre_amg')
     solver.set_operator(A)
 
     # Create vector that spans the null space and normalize
@@ -102,45 +102,51 @@ if __name__ == '__main__':
     import time
 
     def run_periodic_solver():
+        L = [-1., 1.,-1., 1.]
         # The mesh
         #mesh = UnitSquareMesh(10,10)#RectangleMesh(Point(0, 0), Point(1, 1), 10, 10)
-        mesh = RectangleMesh(Point(0.,0.), Point(1.,1.), 20, 20)
+        mesh = RectangleMesh(Point(L[0],L[2]), Point(L[1],L[3]), 20, 20)
         class Source(Expression):
             def eval(self, values, x):
-                values[0] = sin(4.0*DOLFIN_PI*x[0]) + sin(4.0*DOLFIN_PI*x[1])
+                values[0] = sin(2.0*DOLFIN_PI*x[0]) #+ sin(2.0*DOLFIN_PI*x[1])
 
-        f = Source(degree=1)
+        f = Source(degree=2)
         # Sub domain for Periodic boundary condition
         class PeriodicBoundary(SubDomain):
 
+            def __init__(self, L):
+                dolfin.SubDomain.__init__(self)
+                self.Lx_left = L[0]
+                self.Lx_right = L[1]
+                self.Ly_left = L[2]
+                self.Ly_right = L[3]
             # Left boundary is "target domain" G
             def inside(self, x, on_boundary):
                 # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
-                return bool((near(x[0], 0) or near(x[1], 0)) and
-                       (not((near(x[0], 0) and near(x[1], 1)) or
-                            (near(x[0], 1) and near(x[1], 0)))) and on_boundary)
+                return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
+                       (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
+                            (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
 
             def map(self, x, y):
-                if near(x[0], 1) and near(x[1], 1):
-                    y[0] = x[0] - 1.
-                    y[1] = x[1] - 1.
-                elif near(x[0], 1):
-                    y[0] = x[0] - 1.
+                if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
+                    y[0] = x[0] - (self.Lx_right - self.Lx_left)
+                    y[1] = x[1] - (self.Ly_right - self.Ly_left)
+                elif near(x[0],  self.Lx_right):
+                    y[0] = x[0] - (self.Lx_right - self.Lx_left)
                     y[1] = x[1]
                 else:   # near(x[1], 1)
                     y[0] = x[0]
-                    y[1] = x[1] - 1.
+                    y[1] = x[1] - (self.Ly_right - self.Ly_left)
 
         # Create boundary and finite element
-        PBC = PeriodicBoundary()
+        PBC = PeriodicBoundary(L)
         V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
         V_g = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 
+        #ff = project(f, V)
         phi, E = periodic_solver(f, mesh, V, V_g)
 
-        ff = project(f, V)
-        plot(mesh, interactive=True)
-        plot(ff,  interactive=True)
+        #plot(ff,  interactive=True)
         plot(phi, interactive=True)
         plot(E, interactive=True)
         grad_u_x, grad_u_y = E.split(deepcopy=True)  # extract components
@@ -153,9 +159,12 @@ if __name__ == '__main__':
             x, y = coor[i]
             print 'Node (%.3f,%.3f): u = %.4f (%9.2e), '\
                   'grad(u)_x = %.4f  (%9.2e), grad(u)_y = %.4f  (%9.2e)' % \
-                  (x, y, u_array[i], (sin(4.0*DOLFIN_PI*x) + sin(4.0*DOLFIN_PI*y))/(16.0*DOLFIN_PI*DOLFIN_PI) - u_array[i],
-                   grad_u_x_array[i], cos(4.0*DOLFIN_PI*x)/(4.0*DOLFIN_PI) - grad_u_x_array[i],
-                   grad_u_y_array[i], cos(4.0*DOLFIN_PI*y)/(4.0*DOLFIN_PI) - grad_u_y_array[i])
+                  (x, y, u_array[i], (-1.*sin(2.0*DOLFIN_PI*x))/(4.0*DOLFIN_PI*DOLFIN_PI) - u_array[i],
+                   grad_u_x_array[i], cos(2.0*DOLFIN_PI*x)/(2.0*DOLFIN_PI) - grad_u_x_array[i],
+                   grad_u_y_array[i], 0 - grad_u_y_array[i])
+                #   (x, y, u_array[i], (sin(4.0*DOLFIN_PI*x) + sin(4.0*DOLFIN_PI*y))/(16.0*DOLFIN_PI*DOLFIN_PI) - u_array[i],
+                #    grad_u_x_array[i], cos(4.0*DOLFIN_PI*x)/(4.0*DOLFIN_PI) - grad_u_x_array[i],
+                #    grad_u_y_array[i], cos(4.0*DOLFIN_PI*y)/(4.0*DOLFIN_PI) - grad_u_y_array[i])
 
     def run_Dirichlet_solver():
         # Source term
