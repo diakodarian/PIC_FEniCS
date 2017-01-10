@@ -10,7 +10,7 @@ from mpi4py import MPI as pyMPI
 comm = pyMPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def periodic_solver(f, mesh, V, V_g):
+def periodic_solver(f, mesh, V, V_e):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -45,13 +45,13 @@ def periodic_solver(f, mesh, V, V_g):
     # Compute gradient
     method1 = False
     if method1:
-        v = TestFunction(V_g)
-        w = TrialFunction(V_g)
+        v = TestFunction(V_e)
+        w = TrialFunction(V_e)
 
         a = inner(w, v)*dx
         L = inner(grad(uh), v)*dx
         A, b = assemble_system(a, L)
-        grad_u = Function(V_g)
+        grad_u = Function(V_e)
 
         # Create Krylov solver
         solver = PETScKrylovSolver("cg")
@@ -73,7 +73,8 @@ def periodic_solver(f, mesh, V, V_g):
         # Solve
         solver.solve(-1*grad_u.vector(), b)
     else:
-        grad_u = project(-1*grad(uh), V_g)
+        grad_u = Function(V_e)
+        grad_u = project(-1*grad(uh), V_e)
 
     #grad_u_x, grad_u_y = grad_u.split(deepcopy=True)  # extract component
 
@@ -102,8 +103,8 @@ if __name__ == '__main__':
 
     def run_periodic_solver():
         # The mesh
-        mesh = RectangleMesh(Point(0, 0), Point(1, 1), 10, 10)
-
+        #mesh = UnitSquareMesh(10,10)#RectangleMesh(Point(0, 0), Point(1, 1), 10, 10)
+        mesh = RectangleMesh(Point(0.,0.), Point(1.,1.), 20, 20)
         class Source(Expression):
             def eval(self, values, x):
                 values[0] = sin(4.0*DOLFIN_PI*x[0]) + sin(4.0*DOLFIN_PI*x[1])
@@ -133,10 +134,15 @@ if __name__ == '__main__':
         # Create boundary and finite element
         PBC = PeriodicBoundary()
         V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
-        V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
+        V_g = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 
         phi, E = periodic_solver(f, mesh, V, V_g)
 
+        ff = project(f, V)
+        plot(mesh, interactive=True)
+        plot(ff,  interactive=True)
+        plot(phi, interactive=True)
+        plot(E, interactive=True)
         grad_u_x, grad_u_y = E.split(deepcopy=True)  # extract components
 
         u_array = phi.vector().array()
@@ -182,13 +188,13 @@ if __name__ == '__main__':
         File("data/phi.pvd") << phi
         File("data/partitions.pvd") << CellFunction("size_t", mesh, rank)
 
-    tic = time.time()
-    run_Dirichlet_solver()
-    toc = time.time()
-    if rank == 0:
-        seconds = toc-tic
-        print "Total run time: %d seconds " %seconds
-        m, s = divmod(seconds, 60)
-        h, m = divmod(m, 60)
-        print "Total run time: %d:%02d:%02d" % (h, m, s)
-    #run_periodic_solver()
+    # tic = time.time()
+    # run_Dirichlet_solver()
+    # toc = time.time()
+    # if rank == 0:
+    #     seconds = toc-tic
+    #     print "Total run time: %d seconds " %seconds
+    #     m, s = divmod(seconds, 60)
+    #     h, m = divmod(m, 60)
+    #     print "Total run time: %d:%02d:%02d" % (h, m, s)
+    run_periodic_solver()

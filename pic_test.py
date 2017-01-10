@@ -14,21 +14,21 @@ comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
 d = 2              # Space dimension
-M = [10,10,10]   # Number of grid points
-N_e = 50          # Number of electrons
-N_i = 50         # Number of ions
-tot_time = 20  # Total simulation time
-dt = 0.001     # time step
+M = [10,10,20]     # Number of grid points
+N_e = 20           # Number of electrons
+N_i = 20           # Number of ions
+tot_time = 100     # Total simulation time
+dt = 0.001         # time step
 
 # Physical parameters
-rho_p = 8.*N_e        # Plasma density
-T_e = 1        # Temperature - electrons
-T_i = 1        # Temperature - ions
-kB = 1         # Boltzmann's constant
-e = 1        # Elementary charge
-Z = 1          # Atomic number
-m_e = 1        # particle mass - electron
-m_i = 100        # particle mass - ion
+rho_p = 8.*N_e       # Plasma density
+T_e = 1              # Temperature - electrons
+T_i = 1              # Temperature - ions
+kB = 1               # Boltzmann's constant
+e = 1                # Elementary charge
+Z = 1                # Atomic number
+m_e = 1              # particle mass - electron
+m_i = 100            # particle mass - ion
 
 alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
 alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
@@ -39,11 +39,11 @@ w = rho_p/N_e
 
 # Create the mesh
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-l1 = -1.
+l1 = 0.
 l2 = 1.
-w1 = -1.
+w1 = 0.
 w2 = 1.
-h1 = -1.
+h1 = 0.
 h2 = 1.
 l = [l1, l2, w1, w2, h1, h2]
 mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
@@ -85,6 +85,7 @@ if periodic_field_solver:
     PBC = PeriodicBoundary()
     V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
     V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
+    V_e = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 else:
     # Create dolfin function spaces
     V = FunctionSpace(mesh, "CG", 1)
@@ -104,28 +105,44 @@ initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, l, d, w, q_e, q_i, m_e, m_i,
                        alpha_e, alpha_i, random_domain, initial_type)
 
+
+# initial_velocities = np.array([[-15.,0.]])
+# initial_positions = np.array([[-0.99, 0.]])
+#
+# n_electrons = len(initial_positions)
+#
+# properties = {}
+# key = 'q'
+# properties.setdefault(key, [])
+# properties[key].append(w*q_e)
+# key = 'm'
+# properties.setdefault(key, [])
+# properties[key].append(m_e)
+
+
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities, properties)
-
-f = Function(V)
 
 fig = plt.figure()
 lp.scatter_new(fig)
 fig.suptitle('Initial')
 
+data_to_file = True
+
 if comm.Get_rank() == 0:
     fig.show()
-    to_file = open('data.xyz', 'w')
-    to_file.write("%d\n" %len(initial_positions))
-    to_file.write("PIC \n")
-    for p1, p2 in map(None,initial_positions[n_electrons:],
-                            initial_positions[:n_electrons]):
-        if d == 2:
-            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
-            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
-        elif d == 3:
-            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
-            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
+    if data_to_file:
+        to_file = open('data.xyz', 'w')
+        to_file.write("%d\n" %len(initial_positions))
+        to_file.write("PIC \n")
+        for p1, p2 in map(None,initial_positions[n_electrons:],
+                                initial_positions[:n_electrons]):
+            if d == 2:
+                to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
+                to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
+            elif d == 3:
+                to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
+                to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
 plt.ion()
 save = True
 
@@ -134,16 +151,20 @@ t = []
 for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
         print("t: ", step)
+    f = Function(V)
+    f.interpolate(Expression("0",degree=1))
     rho = lp.charge_density(f)
+
     if periodic_field_solver:
-        phi, E = periodic_solver(rho, mesh, V, V_g)
+        phi, E = periodic_solver(rho, mesh, V, V_e)
     else:
         phi, E = dirichlet_solver(rho, V, V_g, bc)
 
     lp.step(E, i, dt=dt)
 
     # Write to file
-    lp.write_to_file(to_file)
+    if data_to_file:
+        lp.write_to_file(to_file)
 
     Ek.append(lp.energies())
     t.append(step*dt)
@@ -156,7 +177,8 @@ for i, step in enumerate(range(tot_time)):
     fig.clf()
 
 if comm.Get_rank() == 0:
-    to_file.close()
+    if data_to_file:
+        to_file.close()
     plot(phi, interactive=True)
     plot(rho, interactive=True)
     plot(E, interactive=True)

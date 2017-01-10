@@ -13,11 +13,10 @@ comm = pyMPI.COMM_WORLD
 
 def Langmuir_waves_positions(n_electrons, l):
 
-    f = lambda x: x-np.cos(2*np.pi*x)/(2.*np.pi)
+    f = lambda x: x-np.cos(4*np.pi*x)/(4.*np.pi)
     inv_f = inversefunc(f, domain=[l[0], l[1]], open_domain=True)
-    random_positions = np.random.uniform(-1.156,0.84, n_electrons)
+    random_positions = np.random.uniform(-.079,0.92, n_electrons)
     positions = inv_f(random_positions)
-    print("is position an array: ", isinstance(positions, np.ndarray))
     return np.array(positions)
 
 def initialize_particle_positions(N_e, N_i, l, d, random_domain, initial_type):
@@ -156,9 +155,9 @@ def initial_conditions(N_e, N_i, l, d, w, q_e, q_i, m_e, m_i,
     return initial_positions, initial_velocities, properties, n_electrons
 
 if __name__ == '__main__':
-    d = 3              # Space dimension
-    N_e = 10          # Number of electrons
-    N_i = 10        # Number of ions
+    d = 2              # Space dimension
+    N_e = 30          # Number of electrons
+    N_i = 30        # Number of ions
     # Physical parameters
     rho_p = 8.*N_e        # Plasma density
     T_e = 1.        # Temperature - electrons
@@ -176,11 +175,11 @@ if __name__ == '__main__':
     q_i = Z*e  # Electric charge - ions
     w = rho_p/N_e
 
-    l1 = -1.
+    l1 = 0.
     l2 = 1.
-    w1 = -1.
+    w1 = 0.
     w2 = 1.
-    h1 = -1.
+    h1 = 0.
     h2 = 1.
     l = [l1, l2, w1, w2, h1, h2]
     initial_positions, initial_velocities, properties, n_electrons = \
@@ -191,6 +190,7 @@ if __name__ == '__main__':
     count, bins, ignored = plt.hist(initial_positions[:n_electrons,0], 600, normed=True)
 
     f = 1+np.sin(2.*np.pi*bins)
+    print(sum(f))
     plt.plot(bins, f,linewidth=2, color='r')
     plt.show()
     # print('initial_positions: ', initial_positions)
