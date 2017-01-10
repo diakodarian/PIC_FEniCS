@@ -61,28 +61,35 @@ if d == 2:
 # Create boundary conditions
 periodic_field_solver = True # Periodic or Dirichlet bcs
 if periodic_field_solver:
+    # Sub domain for Periodic boundary condition
     class PeriodicBoundary(SubDomain):
 
+        def __init__(self, L):
+            dolfin.SubDomain.__init__(self)
+            self.Lx_left = L[0]
+            self.Lx_right = L[1]
+            self.Ly_left = L[2]
+            self.Ly_right = L[3]
         # Left boundary is "target domain" G
         def inside(self, x, on_boundary):
             # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
-            return bool((near(x[0], 0) or near(x[1], 0)) and
-                   (not((near(x[0], 0) and near(x[1], 1)) or
-                        (near(x[0], 1) and near(x[1], 0)))) and on_boundary)
+            return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
+                   (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
+                        (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
 
         def map(self, x, y):
-            if near(x[0], 1) and near(x[1], 1):
-                y[0] = x[0] - 1.
-                y[1] = x[1] - 1.
-            elif near(x[0], 1):
-                y[0] = x[0] - 1.
+            if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
+                y[0] = x[0] - (self.Lx_right - self.Lx_left)
+                y[1] = x[1] - (self.Ly_right - self.Ly_left)
+            elif near(x[0],  self.Lx_right):
+                y[0] = x[0] - (self.Lx_right - self.Lx_left)
                 y[1] = x[1]
             else:   # near(x[1], 1)
                 y[0] = x[0]
-                y[1] = x[1] - 1.
+                y[1] = x[1] - (self.Ly_right - self.Ly_left)
 
     # Create boundary and finite element
-    PBC = PeriodicBoundary()
+    PBC = PeriodicBoundary(l)
     V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
     V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
     V_e = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
