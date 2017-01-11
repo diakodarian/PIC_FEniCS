@@ -3,6 +3,7 @@ from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomRe
 from FieldSolver import periodic_solver, dirichlet_solver
 from initial_conditions import initial_conditions
 from particleDistribution import speed_distribution
+from mesh_types import *
 import matplotlib.pyplot as plt
 #from dolfin import VectorFunctionSpace, interpolate, RectangleMesh, Expression, Point
 from dolfin import *
@@ -46,17 +47,22 @@ w2 = 1.
 h1 = 0.
 h2 = 1.
 l = [l1, l2, w1, w2, h1, h2]
+
 mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
 if d == 3:
+    divisions = [M[0], M[1], M[2]]
+    L = [l1, w1, h1, l2, w2, h2]
     if mesh_dimensions == 'Unit_dimensions':
-        mesh = UnitCubeMesh(M[0], M[1], M[2])
+        mesh = UnitHyperCube(divisions)
     if mesh_dimensions == 'Arbitrary_dimensions':
-        mesh = BoxMesh(Point(l1,w1,h1), Point(l2,w2,h2), M[0], M[1], M[2])
+        mesh = HyperCube(L, divisions)
 if d == 2:
+    divisions = [M[0], M[1]]
+    L = [l1, w1, l2, w2]
     if mesh_dimensions == 'Unit_dimensions':
-        mesh = UnitSquareMesh(M[0], M[1])
+        mesh = UnitHyperCube(divisions)
     if mesh_dimensions == 'Arbitrary_dimensions':
-        mesh = RectangleMesh(Point(l1,w1), Point(l2,w2), M[0], M[1])
+        mesh = HyperCube(L, divisions)
 
 # Create boundary conditions
 periodic_field_solver = True # Periodic or Dirichlet bcs
@@ -112,21 +118,6 @@ initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, l, d, w, q_e, q_i, m_e, m_i,
                        alpha_e, alpha_i, random_domain, initial_type)
 
-
-# initial_velocities = np.array([[-15.,0.]])
-# initial_positions = np.array([[-0.99, 0.]])
-#
-# n_electrons = len(initial_positions)
-#
-# properties = {}
-# key = 'q'
-# properties.setdefault(key, [])
-# properties[key].append(w*q_e)
-# key = 'm'
-# properties.setdefault(key, [])
-# properties[key].append(m_e)
-
-
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
@@ -134,7 +125,7 @@ fig = plt.figure()
 lp.scatter_new(fig)
 fig.suptitle('Initial')
 
-data_to_file = True
+data_to_file = False
 
 if comm.Get_rank() == 0:
     fig.show()
