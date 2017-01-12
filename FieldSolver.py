@@ -1,8 +1,8 @@
-# Poisson solver with periodic boundary conditions
+# Poisson solver with periodic and Dirichlet boundary conditions
 #
 #     - div grad u(x, y, z) = f(x, y, z)
 #
-# on the unit square with periodic boundary conditions
+from __future__ import print_function
 import numpy as np
 from dolfin import *
 from mpi4py import MPI as pyMPI
@@ -10,7 +10,17 @@ from mpi4py import MPI as pyMPI
 comm = pyMPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def periodic_solver(f, mesh, V, V_e):
+def periodic_solver(f, V):
+
+    # Create Krylov solver
+    solver = PETScKrylovSolver('cg', 'hypre_amg')#'gmres', 'ilu')
+
+    solver.parameters["absolute_tolerance"] = 1e-12
+    solver.parameters["relative_tolerance"] = 1e-11
+    solver.parameters["maximum_iterations"] = 1000
+    solver.parameters["monitor_convergence"] = True
+    solver.parameters["convergence_norm_type"] = "natural"
+    for item in solver.parameters.items(): print(item)
 
     # Define variational problem
     u = TrialFunction(V)
@@ -20,14 +30,12 @@ def periodic_solver(f, mesh, V, V_e):
     L = f*v*dx
 
     A, b = assemble_system(a, L)
-    uh = Function(V)
+    phi = Function(V)
 
-    # Create Krylov solver
-    solver = PETScKrylovSolver('cg', 'hypre_amg')
     solver.set_operator(A)
 
     # Create vector that spans the null space and normalize
-    null_vec = Vector(uh.vector())
+    null_vec = Vector(phi.vector())
     V.dofmap().set(null_vec, 1.0)
     null_vec *= 1.0/null_vec.norm("l2")
 
@@ -35,20 +43,14 @@ def periodic_solver(f, mesh, V, V_e):
     null_space = VectorSpaceBasis([null_vec])
     as_backend_type(A).set_nullspace(null_space)
 
-    # Orthogonalize RHS vector b with respect to the null space (this
-    # gurantees a solution exists)
+    # Orthogonalize RHS vector b with respect to the null space
     null_space.orthogonalize(b);
 
     # Solve
-    solver.solve(uh.vector(), b)
+    solver.solve(phi.vector(), b)
+    return phi
 
-    # Compute gradient
-    grad_u = Function(V_e)
-    grad_u = project(-1*grad(uh), V_e)
-
-    return uh, grad_u
-
-def dirichlet_solver(f, V, V_g, bc):
+def dirichlet_solver(f, V, bc):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -57,26 +59,33 @@ def dirichlet_solver(f, V, V_g, bc):
     L = f*v*dx
 
     # Compute solution
-    u = Function(V)
-    solve(a == L, u, bc)
+    phi = Function(V)
+    solve(a == L, phi, bc)
+    return phi
 
-    # Compute the gradient
-    grad_u = Function(V_g)
-    grad_u = project(-1*grad(u), V_g)
+def E_field(phi, VV):
+    # Compute gradient
+    V = phi.function_space()
+    mesh = V.mesh()
+    degree = V.ufl_element().degree()
+    W = VectorFunctionSpace(mesh, 'CG', degree)
 
-    return u, grad_u
+    grad_phi = Function(VV)
+    grad_phi = project(-1*grad(phi), VV)
+    e_field = project(grad_phi, W)
+    return e_field
 
 def test_periodic_solver():
-    divs = [[3, 3], [5, 3], [3, 5], [20,20]]
-    L = [[0., 0., 1., 1.], [-1., -1, 0, 2., 1., 1.]]
-    tol = 1E-10
+    divs = [[100, 100]]#, [150, 100], [100, 150], [200,200]]
+    L = [[-1., 0., 1., 1.], [-1., -1, 0, 2., 1., 1.]]
+    tol = 1E-9
 
     for i in range(len(divs)):
         print("run: ", i)
         divisions = divs[i]
         print('divisions: ', divisions)
-        mesh = UnitHyperCube(divisions)
-        #mesh = HyperCube(L[0], divisions)
+        #mesh = UnitHyperCube(divisions)
+        mesh = HyperCube(L[0], divisions)
         V, V_g = periodic_bcs(mesh, L[0])
 
         class Source(Expression):
@@ -88,29 +97,41 @@ def test_periodic_solver():
                 values[0] = (sin(2.0*DOLFIN_PI*x[0]) + sin(2.0*DOLFIN_PI*x[1]))/\
                             (4.0*DOLFIN_PI*DOLFIN_PI)
 
-        f = Source(degree=2)
-        phi, E = periodic_solver(f, mesh, V, V_g)
-
-        phi_e = Exact(degree=2)
-
-        # vertex_values_phi_e = phi_e.compute_vertex_values(mesh)
-        # vertex_values_phi = phi.compute_vertex_values(mesh)
+        # class Source(Expression):
+        #     def eval(self, values, x):
+        #         values[0] = sin(2.0*DOLFIN_PI*x[0]) + sin(6.0*DOLFIN_PI*x[0])
         #
-        # error_max = np.max(vertex_values_phi_e - \
-        #                     vertex_values_phi)
+        # class Exact(Expression):
+        #     def eval(self, values, x):
+        #         values[0] = sin(2.0*DOLFIN_PI*x[0])/(4.0*DOLFIN_PI*DOLFIN_PI) +\
+        #                     sin(6.0*DOLFIN_PI*x[0])/(36.0*DOLFIN_PI*DOLFIN_PI)
+
+
+        f = Source(degree=4)
+        phi_e = Exact(degree=4)
+
+        phi = periodic_solver(f, V)
+
+        error_l2 = errornorm(phi_e, phi, "L2")
+        print("l2 norm: ", error_l2)
+
+        vertex_values_phi_e = phi_e.compute_vertex_values(mesh)
+        vertex_values_phi = phi.compute_vertex_values(mesh)
+
+        error_max = np.max(vertex_values_phi_e - \
+                            vertex_values_phi)
+
+        msg = 'error_max = %g' %error_max
+        assert error_max < tol , msg
+
+        e_field = E_field(phi, V_g)
+        # e_x = Expression('-2*x[0]', degree=1)
+        # e_y = Expression('-4*x[1]', degree=1)
+        # # The gradient:
+        # flux_u_x, flux_u_y = E.split(deepcopy=True)
         #
-        # msg = 'error_max = %g' %error_max
-        # assert error_max < tol , msg
-
-        e_x = Expression('-2*x[0]', degree=1)
-        e_y = Expression('-4*x[1]', degree=1)
-        # The gradient:
-        E_pro = project(E, VectorFunctionSpace(mesh, 'CG', 1))
-        flux_u_x, flux_u_y = E_pro.split(deepcopy=True)
-
         plot(phi, interactive=True)
-        plot(E, interactive=True)
-
+        plot(e_field, interactive=True)
 
 if __name__ == '__main__':
     import time

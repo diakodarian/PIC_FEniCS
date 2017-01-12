@@ -15,20 +15,28 @@ def HyperCube(coordinates, divisions):
     return mesh
 
 def test_Unit_mesh():
+    from pylab import show, triplot
     divs = [[10,10], [10,10,10]]
     for i in range(len(divs)):
         divisions = divs[i]
         mesh = UnitHyperCube(divisions)
-        plot(mesh, interactive = True)
+        coords = mesh.coordinates()
+        triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+        show()
+        #plot(mesh, interactive = True)
 
 def test_mesh():
+    from pylab import show, triplot
     divs = [[10,10], [10,10,10]]
     L = [[-1., -1, 2., 1.], [-1., -1, 0, 2., 1., 1.]]
     for i,j in zip(L, divs):
         L = i
         divisions = j
         mesh = HyperCube(L, divisions)
-        plot(mesh, interactive = True)
+        coords = mesh.coordinates()
+        triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+        show()
+        #plot(mesh, interactive = True)
 
 if __name__=='__main__':
 

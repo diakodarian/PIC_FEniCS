@@ -4,6 +4,7 @@ from FieldSolver import periodic_solver, dirichlet_solver
 from initial_conditions import initial_conditions
 from particleDistribution import speed_distribution
 from mesh_types import *
+from boundary_conditions import *
 import matplotlib.pyplot as plt
 #from dolfin import VectorFunctionSpace, interpolate, RectangleMesh, Expression, Point
 from dolfin import *
@@ -15,21 +16,21 @@ comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
 d = 2              # Space dimension
-M = [10,10,20]     # Number of grid points
-N_e = 20           # Number of electrons
-N_i = 20           # Number of ions
+M = [20,20,20]     # Number of grid points
+N_e = 10           # Number of electrons
+N_i = 10           # Number of ions
 tot_time = 100     # Total simulation time
 dt = 0.001         # time step
 
 # Physical parameters
 rho_p = 8.*N_e       # Plasma density
-T_e = 1              # Temperature - electrons
-T_i = 1              # Temperature - ions
-kB = 1               # Boltzmann's constant
-e = 1                # Elementary charge
+T_e = 0.              # Temperature - electrons
+T_i = 0.              # Temperature - ions
+kB = 1.               # Boltzmann's constant
+e = 1.                # Elementary charge
 Z = 1                # Atomic number
-m_e = 1              # particle mass - electron
-m_i = 100            # particle mass - ion
+m_e = 1.              # particle mass - electron
+m_i = 49.            # particle mass - ion
 
 alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
 alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
@@ -46,70 +47,77 @@ w1 = 0.
 w2 = 1.
 h1 = 0.
 h2 = 1.
+
 l = [l1, l2, w1, w2, h1, h2]
 
 mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
 if d == 3:
     divisions = [M[0], M[1], M[2]]
-    L = [l1, w1, h1, l2, w2, h2]
     if mesh_dimensions == 'Unit_dimensions':
+        L = [0., 0., 0., 1., 1., 1.]
         mesh = UnitHyperCube(divisions)
     if mesh_dimensions == 'Arbitrary_dimensions':
+        L = [l1, w1, h1, l2, w2, h2]
         mesh = HyperCube(L, divisions)
 if d == 2:
     divisions = [M[0], M[1]]
-    L = [l1, w1, l2, w2]
     if mesh_dimensions == 'Unit_dimensions':
+        L = [0., 0., 1., 1.]
         mesh = UnitHyperCube(divisions)
     if mesh_dimensions == 'Arbitrary_dimensions':
+        L = [l1, w1, l2, w2]
         mesh = HyperCube(L, divisions)
 
 # Create boundary conditions
 periodic_field_solver = True # Periodic or Dirichlet bcs
 if periodic_field_solver:
-    # Sub domain for Periodic boundary condition
-    class PeriodicBoundary(SubDomain):
+    V, V_e = periodic_bcs(mesh, L)
 
-        def __init__(self, L):
-            dolfin.SubDomain.__init__(self)
-            self.Lx_left = L[0]
-            self.Lx_right = L[1]
-            self.Ly_left = L[2]
-            self.Ly_right = L[3]
-        # Left boundary is "target domain" G
-        def inside(self, x, on_boundary):
-            # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
-            return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
-                   (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
-                        (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
-
-        def map(self, x, y):
-            if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-            elif near(x[0],  self.Lx_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1]
-            else:   # near(x[1], 1)
-                y[0] = x[0]
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-
-    # Create boundary and finite element
-    PBC = PeriodicBoundary(l)
-    V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
-    V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
-    V_e = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
+    # # Sub domain for Periodic boundary condition
+    # class PeriodicBoundary(SubDomain):
+    #
+    #     def __init__(self, L):
+    #         dolfin.SubDomain.__init__(self)
+    #         self.Lx_left = L[0]
+    #         self.Lx_right = L[1]
+    #         self.Ly_left = L[2]
+    #         self.Ly_right = L[3]
+    #     # Left boundary is "target domain" G
+    #     def inside(self, x, on_boundary):
+    #         # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
+    #         return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
+    #                (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
+    #                     (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
+    #
+    #     def map(self, x, y):
+    #         if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
+    #             y[0] = x[0] - (self.Lx_right - self.Lx_left)
+    #             y[1] = x[1] - (self.Ly_right - self.Ly_left)
+    #         elif near(x[0],  self.Lx_right):
+    #             y[0] = x[0] - (self.Lx_right - self.Lx_left)
+    #             y[1] = x[1]
+    #         else:   # near(x[1], 1)
+    #             y[0] = x[0]
+    #             y[1] = x[1] - (self.Ly_right - self.Ly_left)
+    #
+    # # Create boundary and finite element
+    # PBC = PeriodicBoundary(l)
+    # V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+    # V_g = VectorFunctionSpace(mesh, 'CG', 1, constrained_domain=PBC)
+    # V_e = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 else:
+    u_D = Constant(-6.0)
+    bc, V, V_e = dirichlet_bcs(u_D, mesh)
     # Create dolfin function spaces
-    V = FunctionSpace(mesh, "CG", 1)
-    V_g = VectorFunctionSpace(mesh, 'CG', 1)
-
-    # Create Dirichlet boundary condition
-    u0 = Constant(0.0)
-    def boundary(x, on_boundary):
-        return on_boundary
-
-    bc = DirichletBC(V, u0, boundary)
+    # V = FunctionSpace(mesh, "CG", 1)
+    # V_g = VectorFunctionSpace(mesh, 'CG', 1)
+    #
+    # # Create Dirichlet boundary condition
+    # u0 = Constant(0.0)
+    # def boundary(x, on_boundary):
+    #     return on_boundary
+    #
+    # bc = DirichletBC(V, u0, boundary)
 
 # Initial particle positions and velocities
 random_domain = 'box' # Options: 'sphere' or 'box'
@@ -118,6 +126,7 @@ initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, l, d, w, q_e, q_i, m_e, m_i,
                        alpha_e, alpha_i, random_domain, initial_type)
 
+V_g = VectorFunctionSpace(mesh, 'CG', 1)
 lp = LagrangianParticles(V_g)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
@@ -156,7 +165,7 @@ for i, step in enumerate(range(tot_time)):
     if periodic_field_solver:
         phi, E = periodic_solver(rho, mesh, V, V_e)
     else:
-        phi, E = dirichlet_solver(rho, V, V_g, bc)
+        phi, E = dirichlet_solver(rho, V, V_e, bc)
 
     lp.step(E, i, dt=dt)
 
