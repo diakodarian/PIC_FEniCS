@@ -1,3 +1,4 @@
+from __future__ import print_function
 from dolfin import *
 import numpy as np
 

@@ -15,11 +15,11 @@ def periodic_solver(f, V):
     # Create Krylov solver
     solver = PETScKrylovSolver('cg', 'hypre_amg')#'gmres', 'ilu')
 
-    solver.parameters["absolute_tolerance"] = 1e-12
-    solver.parameters["relative_tolerance"] = 1e-11
+    solver.parameters["absolute_tolerance"] = 1e-14
+    solver.parameters["relative_tolerance"] = 1e-12
     solver.parameters["maximum_iterations"] = 1000
     solver.parameters["monitor_convergence"] = True
-    solver.parameters["convergence_norm_type"] = "natural"
+    solver.parameters["convergence_norm_type"] = "true"
     for item in solver.parameters.items(): print(item)
 
     # Define variational problem
