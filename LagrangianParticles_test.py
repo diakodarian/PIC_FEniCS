@@ -14,6 +14,7 @@ import copy
 from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
+import sys
 
 # Disable printing
 __DEBUG__ = False
@@ -237,44 +238,28 @@ class LagrangianParticles:
 
     def charge_density(self, f):
         'Particle charge weigthed at nodes'
+        v2d = df.vertex_to_dof_map(f.function_space())
+        f_coefficients = np.zeros(f.function_space().dolfin_element().space_dimension())
+        f_basis_matrix = np.zeros(f.function_space().dolfin_element().space_dimension())
         for cwp in self.particle_map.itervalues():
+            f.restrict(f_coefficients,
+                       f.function_space().dolfin_element(),
+                       cwp,
+                       cwp.get_vertex_coordinates(),
+                       cwp)
             for particle in cwp.particles:
                 x = particle.position
-                # print("x: ", x)
                 # Compute velocity at position x
-                self.element.evaluate_basis_all(self.basis_matrix,
+                f.function_space().dolfin_element().evaluate_basis_all(f_basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
                 c = cwp.entities(0)
-                vv = self.mesh.coordinates()[c]
-                #print("c: ", c)
-                #print("vertexes: ", vv)
-                vertices = []
-                #print("dim: ", self.dim)
-                for i in range(len(c)):
-                    vertices.append(cwp.get_vertex_coordinates()[i*self.dim:(i+1)*self.dim])
-                # print("get_vertex_coordinates: ", cwp.get_vertex_coordinates())
-                #print("vertices: ", vertices)
-                # print("Cell volume: ", cwp.volume())
-                dof_coordinates = self.V.tabulate_dof_coordinates()
-                n = self.V.dim()
-                d = self.mesh.geometry().dim()
-                dof_coordinates.resize((n, d))
-
-                f_dofs = f.function_space().dofmap().dofs()
-                x_dofs = self.V.sub(0).dofmap().dofs()
-                y_dofs = self.V.sub(1).dofmap().dofs()
-                for i in range(len(f_dofs)):
-                    x_dof = x_dofs[i]
-                    y_dof = y_dofs[i]
-                    f_dof = f_dofs[i]
-                    xx = dof_coordinates[x_dof]
-                    yy = dof_coordinates[y_dof]
-                    for j in range(len(c)):
-                        if all(vertices[j][ii] == xx[ii] for ii in range(len(xx))):
-                            f.vector()[f_dof] = f.vector()[f_dof][0] + particle.properties['q']*self.basis_matrix[j,0]/cwp.volume()
-
+                dof = v2d[c]
+                if cwp.orientation() == 0:
+                    f.vector()[dof] =  f_coefficients + particle.properties['q']*np.roll(f_basis_matrix, 1)/cwp.volume()
+                else:
+                    f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix/cwp.volume()
         return f
 
     def step(self, E, t_step, dt):
@@ -290,6 +275,8 @@ class LagrangianParticles:
             for particle in cwp.particles: #i,particle in enumerate(cwp.particles)
                 x = particle.position
                 u = particle.velocity
+                # print("x: ", x, "  charge: ", particle.properties['q'])
+                # print("u: ", u)
                 # Compute velocity at position x
                 self.element.evaluate_basis_all(self.basis_matrix,
                                                 x,

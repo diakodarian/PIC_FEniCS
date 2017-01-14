@@ -1,5 +1,9 @@
 from __future__ import print_function
 from dolfin import *
+from mpi4py import MPI as pyMPI
+
+comm = pyMPI.COMM_WORLD
+rank = comm.Get_rank()
 
 def periodic_bcs(mesh, l):
     # Sub domain for 2d Periodic boundary condition
@@ -77,23 +81,25 @@ def periodic_bcs(mesh, l):
     geo_dim = mesh.geometry().dim()
     if geo_dim == 2:
         PBC = PeriodicBoundary2D(l)
-    elif geo_dim == 3:
+    if geo_dim == 3:
         PBC = PeriodicBoundary3D(l)
     V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+    VV = VectorFunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
     W = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
-    return V, W
+    return V, VV, W
 
 def dirichlet_bcs(u_D, mesh, degree = 1):
     # Create dolfin function spaces
     V = FunctionSpace(mesh, "CG", 1)
-    W = VectorFunctionSpace(mesh, 'CG', 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
 
     # Create Dirichlet boundary condition
     def boundary(x, on_boundary):
       return on_boundary
 
     bc = DirichletBC(V, u_D, boundary)
-    return bc, V, W
+    return bc, V, VV, W
 
 def test_dirichlet_bcs():
     divs = [[20,20], [20,20, 20]]
@@ -112,7 +118,7 @@ def test_dirichlet_bcs():
                 mesh = UnitHyperCube(divisions)
             elif i == 1:
                 mesh = HyperCube(L[j], divisions)
-            bc, V, V_g = dirichlet_bcs(u_D, mesh)
+            bc, V, VV, V_g = dirichlet_bcs(u_D, mesh)
             phi = dirichlet_solver(f, V, bc)
 
             # error_l2 = errornorm(u_D, phi, "L2")
@@ -167,7 +173,7 @@ def test_periodic_bcs():
                 L = l_hyper[j]
                 mesh = HyperCube(L, divisions)
 
-            V, V_g = periodic_bcs(mesh, L)
+            V, VV, V_g = periodic_bcs(mesh, L)
 
             if j == 0:
                 class Source(Expression):

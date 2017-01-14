@@ -1,6 +1,10 @@
 from __future__ import print_function
 from dolfin import *
 import numpy as np
+from mpi4py import MPI as pyMPI
+
+comm = pyMPI.COMM_WORLD
+rank = comm.Get_rank()
 
 def UnitHyperCube(divisions):
     mesh_classes = [UnitIntervalMesh, UnitSquareMesh, UnitCubeMesh]

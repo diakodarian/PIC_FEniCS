@@ -18,9 +18,9 @@ def periodic_solver(f, V):
     solver.parameters["absolute_tolerance"] = 1e-14
     solver.parameters["relative_tolerance"] = 1e-12
     solver.parameters["maximum_iterations"] = 1000
-    solver.parameters["monitor_convergence"] = True
+    #solver.parameters["monitor_convergence"] = True
     solver.parameters["convergence_norm_type"] = "true"
-    for item in solver.parameters.items(): print(item)
+    #for item in solver.parameters.items(): print(item)
 
     # Define variational problem
     u = TrialFunction(V)
@@ -76,173 +76,214 @@ def E_field(phi, VV):
     return e_field
 
 def test_periodic_solver():
-    divs = [[100, 100]]#, [150, 100], [100, 150], [200,200]]
-    L = [[-1., 0., 1., 1.], [-1., -1, 0, 2., 1., 1.]]
-    tol = 1E-9
+    divs = [[50, 50], [10, 10, 10]]
+    l_unit = [[0., 0., 1., 1.], [0., 0., 0., 1., 1., 1.]]
+    l_hyper = [[-1., -1, 1., 1.],[-1., -1., -1., 1., 1., 1.]]
 
-    for i in range(len(divs)):
-        print("run: ", i)
-        divisions = divs[i]
-        print('divisions: ', divisions)
-        #mesh = UnitHyperCube(divisions)
-        mesh = HyperCube(L[0], divisions)
-        V, V_g = periodic_bcs(mesh, L[0])
+    mesh_type = ["UnitHyperCube", "HyperCube"]
+    tol = 1E-6
 
-        class Source(Expression):
-            def eval(self, values, x):
-                values[0] = sin(2.0*DOLFIN_PI*x[0]) + sin(2.0*DOLFIN_PI*x[1])
+    for i in range(len(mesh_type)):
+        print("------ Test of mesh type ", mesh_type[i], "   ------")
+        for j in range(len(divs)):
+            divisions = divs[j]
+            print(len(divisions), "D test with ", divisions, " nodes.")
+            if i == 0:
+                L = l_unit[j]
+                mesh = UnitHyperCube(divisions)
+            if i == 1:
+                L = l_hyper[j]
+                mesh = HyperCube(L, divisions)
 
-        class Exact(Expression):
-            def eval(self, values, x):
-                values[0] = (sin(2.0*DOLFIN_PI*x[0]) + sin(2.0*DOLFIN_PI*x[1]))/\
-                            (4.0*DOLFIN_PI*DOLFIN_PI)
+            V, VV, V_g = periodic_bcs(mesh, L)
 
-        # class Source(Expression):
-        #     def eval(self, values, x):
-        #         values[0] = sin(2.0*DOLFIN_PI*x[0]) + sin(6.0*DOLFIN_PI*x[0])
-        #
-        # class Exact(Expression):
-        #     def eval(self, values, x):
-        #         values[0] = sin(2.0*DOLFIN_PI*x[0])/(4.0*DOLFIN_PI*DOLFIN_PI) +\
-        #                     sin(6.0*DOLFIN_PI*x[0])/(36.0*DOLFIN_PI*DOLFIN_PI)
+            if j == 0:
+                class Source(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
+
+                class Exact(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
+
+            if j == 1:
+                class Source(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*cos(2.0*DOLFIN_PI*x[2])*(12.0*DOLFIN_PI*DOLFIN_PI)
+
+                class Exact(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*cos(2.0*DOLFIN_PI*x[2])
+
+            f = Source(degree=2)
+            phi_e = Exact(degree=2)
+            phi = periodic_solver(f, V)
+
+            #error_l2 = errornorm(phi_e, phi, "L2")
+            #print("l2 norm: ", error_l2)
+
+            vertex_values_phi_e = phi_e.compute_vertex_values(mesh)
+            vertex_values_phi = phi.compute_vertex_values(mesh)
+
+            error_max = np.max(vertex_values_phi_e - \
+                                vertex_values_phi)
+
+            msg = 'error_max = %g' %error_max
+            print("error_max: ", error_max)
+            #assert error_max < tol , msg
+
+            #plot(phi, interactive=True)
+            #plot(phi_e, mesh=mesh, interactive=True)
+
+            E = E_field(phi, V_g)
+            plot(E, interactive=True)
+
+def test_dirichlet_solver():
+    divs = [[20,20], [20,20, 20]]
+    L = [[-1., -1, 2., 1.], [-1., -1, 0, 2., 1., 1.]]
+    mesh_type = ["UnitHyperCube", "HyperCube"]
+    tol = 1E-10
+    u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=2)
+    f = Constant(-6.0)
+
+    for i in range(len(mesh_type)):
+        print("------ Test of mesh type ", mesh_type[i], "   ------")
+        for j in range(len(divs)):
+            divisions = divs[j]
+            print(len(divisions), "D test with ", divisions, " nodes.")
+            if i == 0:
+                mesh = UnitHyperCube(divisions)
+            elif i == 1:
+                mesh = HyperCube(L[j], divisions)
+            bc, V, VV, V_g = dirichlet_bcs(u_D, mesh)
+            phi = dirichlet_solver(f, V, bc)
+
+            # error_l2 = errornorm(u_D, phi, "L2")
+            # print("l2 norm: ", error_l2)
+
+            vertex_values_u_D = u_D.compute_vertex_values(mesh)
+            vertex_values_phi = phi.compute_vertex_values(mesh)
+
+            error_max = np.max(vertex_values_u_D - \
+                                vertex_values_phi)
+
+            msg = 'error_max = %g' %error_max
+            assert error_max < tol , msg
+
+            plot(phi, interactive=True)
+            #plot(u_D, mesh=mesh, interactive=True)
+
+            # The gradient:
+            E = E_field(phi, V_g)
+            plot(E, interactive=True)
+            # flux_u_x, flux_u_y = E.split(deepcopy=True)
+
+            # Exact flux expressions
+            # u_e = lambda x, y: 1 + x**2 + 2*y**2
+            # flux_x_exact = lambda x, y: -2*x
+            # flux_y_exact = lambda x, y: -4*y
+            #
+            # # Compute error in flux
+            # coor = phi.function_space().mesh().coordinates()
+            # for i, value in enumerate(flux_u_x.compute_vertex_values()):
+            #     print('vertex %d, x = %s, -p*u_x = %g, error = %g' %
+            #           (i, tuple(coor[i]), value, flux_x_exact(*coor[i])))
+            # for i, value in enumerate(flux_u_y.compute_vertex_values()):
+            #     print('vertex %d, x = %s, -p*u_y = %g, error = %g' %
+            #           (i, tuple(coor[i]), value, flux_y_exact(*coor[i])))
+
+def test_D_solver():
+    divs = [[3,3], [5,5], [10,10]]
+    L = [[-1., -1, 2., 1.]]
+    mesh_type = ["UnitHyperCube", "HyperCube"]
+    tol = 1E-10
+    u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=2)
+    f = Constant(-6.0)
+
+    for i in range(len(mesh_type)):
+        print("------ Test of mesh type ", mesh_type[i], "   ------")
+        h = []
+        E = []
+        for j in range(len(divs)):
+            divisions = divs[j]
+            print(len(divisions), "D test with ", divisions, " nodes.")
+            if i == 0:
+                mesh = UnitHyperCube(divisions)
+            elif i == 1:
+                mesh = HyperCube(L[0], divisions)
+            bc, V, VV, V_g = dirichlet_bcs(u_D, mesh)
+            phi = dirichlet_solver(f, V, bc)
+            E.append(errornorm(u_D, phi, "l2"))
+            h.append(1./divisions[0])
+        from math import log as ln
+        for i in range(1, len(E)):
+            r = ln(E[i]/E[i-1])/ln(h[i]/h[i-1])
+            print("h =%10.2E E =%10.2E r =%.2f" %(h[i], E[i], r))
 
 
-        f = Source(degree=4)
-        phi_e = Exact(degree=4)
+def test_p_solver():
+    divs = [[3,3], [5,5], [10,10], [20,20], [30,30], [40,40], [50,50], [100,100]]
+    l_unit = [[0., 0., 1., 1.]]
+    l_hyper = [[-1., -1, 1., 1.]]
 
-        phi = periodic_solver(f, V)
+    mesh_type = ["UnitHyperCube", "HyperCube"]
+    tol = 1E-10
 
-        error_l2 = errornorm(phi_e, phi, "L2")
-        print("l2 norm: ", error_l2)
+    for i in range(len(mesh_type)):
+        print("------ Test of mesh type ", mesh_type[i], "   ------")
+        h = []
+        E1 = []
+        E2 = []
+        for j in range(len(divs)):
+            divisions = divs[j]
+            print(len(divisions), "D test with ", divisions, " nodes.")
 
-        vertex_values_phi_e = phi_e.compute_vertex_values(mesh)
-        vertex_values_phi = phi.compute_vertex_values(mesh)
+            if i == 0:
+                L = l_unit[0]
+                mesh = UnitHyperCube(divisions)
+            if i == 1:
+                L = l_hyper[0]
+                mesh = HyperCube(L, divisions)
 
-        error_max = np.max(vertex_values_phi_e - \
-                            vertex_values_phi)
+            V, VV, V_g = periodic_bcs(mesh, L)
 
-        msg = 'error_max = %g' %error_max
-        assert error_max < tol , msg
+            if j == 0:
+                class Source(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
 
-        e_field = E_field(phi, V_g)
-        # e_x = Expression('-2*x[0]', degree=1)
-        # e_y = Expression('-4*x[1]', degree=1)
-        # # The gradient:
-        # flux_u_x, flux_u_y = E.split(deepcopy=True)
-        #
-        plot(phi, interactive=True)
-        plot(e_field, interactive=True)
+                class Exact(Expression):
+                    def eval(self, values, x):
+                        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
 
+                class Exact_E(Expression):
+                    def eval(self, values, x):
+                        values[0] = -2.0*DOLFIN_PI*cos(2.0*DOLFIN_PI*x[0])
+                        values[1] = -2.0*DOLFIN_PI*cos(2.0*DOLFIN_PI*x[1])
+
+            f = Source(degree=4)
+            phi_e = Exact(degree=4)
+            E_e = Exact_E(degree=4)
+
+            phi = periodic_solver(f, V)
+            E = E_field(phi, V_g)
+
+            E1.append(errornorm(phi_e, phi, "l2"))
+            E2.append(errornorm(E_e, E, "l2"))
+            h.append(1./divisions[0])
+        from math import log as ln
+        for i in range(1, len(E1)):
+            r1 = ln(E1[i]/E1[i-1])/ln(h[i]/h[i-1])
+            print("h =%10.2E E1 =%10.2E r1 =%.2f" %(h[i], E1[i], r1))
+            r2 = ln(E2[i]/E2[i-1])/ln(h[i]/h[i-1])
+            print("h =%10.2E E1 =%10.2E r2 =%.2f" %(h[i], E2[i], r2))
 if __name__ == '__main__':
     import time
     from mesh_types import *
     from boundary_conditions import *
 
-    def run_periodic_solver():
-        L = [-1., 1.,-1., 1.]
-        # The mesh
-        #mesh = UnitSquareMesh(10,10)#RectangleMesh(Point(0, 0), Point(1, 1), 10, 10)
-        mesh = RectangleMesh(Point(L[0],L[2]), Point(L[1],L[3]), 20, 20)
-        class Source(Expression):
-            def eval(self, values, x):
-                values[0] = sin(2.0*DOLFIN_PI*x[0]) #+ sin(2.0*DOLFIN_PI*x[1])
+    #test_periodic_solver()
+    #test_dirichlet_solver()
 
-        f = Source(degree=2)
-        # Sub domain for Periodic boundary condition
-        class PeriodicBoundary(SubDomain):
-
-            def __init__(self, L):
-                dolfin.SubDomain.__init__(self)
-                self.Lx_left = L[0]
-                self.Lx_right = L[1]
-                self.Ly_left = L[2]
-                self.Ly_right = L[3]
-            # Left boundary is "target domain" G
-            def inside(self, x, on_boundary):
-                # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
-                return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
-                       (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
-                            (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
-
-            def map(self, x, y):
-                if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
-                    y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                    y[1] = x[1] - (self.Ly_right - self.Ly_left)
-                elif near(x[0],  self.Lx_right):
-                    y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                    y[1] = x[1]
-                else:   # near(x[1], 1)
-                    y[0] = x[0]
-                    y[1] = x[1] - (self.Ly_right - self.Ly_left)
-
-        # Create boundary and finite element
-        PBC = PeriodicBoundary(L)
-        V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
-        V_g = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
-
-        #ff = project(f, V)
-        phi, E = periodic_solver(f, mesh, V, V_g)
-
-        #plot(ff,  interactive=True)
-        plot(phi, interactive=True)
-        plot(E, interactive=True)
-        # grad_u_x, grad_u_y = E.split(deepcopy=True)  # extract components
-        #
-        # u_array = phi.vector().array()
-        # grad_u_x_array = grad_u_x.vector().array()
-        # grad_u_y_array = grad_u_y.vector().array()
-        # coor = mesh.coordinates()
-        # for i in range(len(u_array)):
-        #     x, y = coor[i]
-        #     print 'Node (%.3f,%.3f): u = %.4f (%9.2e), '\
-        #           'grad(u)_x = %.4f  (%9.2e), grad(u)_y = %.4f  (%9.2e)' % \
-        #           (x, y, u_array[i], (-1.*sin(2.0*DOLFIN_PI*x))/(4.0*DOLFIN_PI*DOLFIN_PI) - u_array[i],
-        #            grad_u_x_array[i], cos(2.0*DOLFIN_PI*x)/(2.0*DOLFIN_PI) - grad_u_x_array[i],
-        #            grad_u_y_array[i], 0 - grad_u_y_array[i])
-        #           (x, y, u_array[i], (sin(4.0*DOLFIN_PI*x) + sin(4.0*DOLFIN_PI*y))/(16.0*DOLFIN_PI*DOLFIN_PI) - u_array[i],
-        #            grad_u_x_array[i], cos(4.0*DOLFIN_PI*x)/(4.0*DOLFIN_PI) - grad_u_x_array[i],
-        #            grad_u_y_array[i], cos(4.0*DOLFIN_PI*y)/(4.0*DOLFIN_PI) - grad_u_y_array[i])
-
-    def run_Dirichlet_solver():
-        # Source term
-        class Source(Expression):
-            def eval(self, values, x):
-                dx = x[0] - 0.5
-                dy = x[1] - 0.5
-                values[0] = x[0]*sin(5.0*DOLFIN_PI*x[1]) \
-                            + 1.0*exp(-(dx*dx + dy*dy)/0.02)
-
-        class Source1(Expression):
-            def eval(self, values, x):
-                values[0] = x[0]*exp(-pow(pow(2*(x[0]-0.5),2)+pow(2*(x[1]-0.5),2),2))
-
-        # Create mesh and finite element
-        mesh = UnitSquareMesh(20, 20)
-        V = FunctionSpace(mesh, "CG", 1)
-        V_g = VectorFunctionSpace(mesh, 'CG', 1)
-
-        # Create Dirichlet boundary condition
-        u0 = Constant(0.0)
-        def boundary(x, on_boundary):
-            return on_boundary
-
-        bc = DirichletBC(V, u0, boundary)
-
-        f = Source1(degree=1)
-        phi, E = dirichlet_solver(f, V, V_g, bc)
-        plot(phi, interactive=True)
-        plot(E, interactive=True)
-        #File("data/phi.pvd") << phi
-        #sFile("data/partitions.pvd") << CellFunction("size_t", mesh, rank)
-
-    # tic = time.time()
-    #run_Dirichlet_solver()
-    # toc = time.time()
-    # if rank == 0:
-    #     seconds = toc-tic
-    #     print "Total run time: %d seconds " %seconds
-    #     m, s = divmod(seconds, 60)
-    #     h, m = divmod(m, 60)
-    #     print "Total run time: %d:%02d:%02d" % (h, m, s)
-
-    test_periodic_solver()
+    test_p_solver()
+    #test_D_solver()
