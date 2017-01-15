@@ -192,9 +192,9 @@ if __name__ == '__main__':
     fig = plt.figure()
     count, bins, ignored = plt.hist(initial_positions[:n_electrons,0], 600, normed=True)
 
-    #f = 1+np.sin(2.*np.pi*bins)
+    f = 0.1*np.sin(4.*np.pi*bins)
     #print(sum(f))
-    #plt.plot(bins, f,linewidth=2, color='r')
+    plt.plot(bins, f,linewidth=2, color='r')
     plt.show()
     # print('initial_positions: ', initial_positions)
     # print('initial_velocities: ', initial_velocities)

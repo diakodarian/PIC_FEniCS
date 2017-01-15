@@ -229,19 +229,40 @@ class LagrangianParticles:
 
         raise ValueError('Singular system, no solution.')
 
-    def energies(self):
-        e = 0
+    def potential_energy(self, phi):
+        e_p = 0.0
+        for cwp in self.particle_map.itervalues():
+            phi_coefficients = np.zeros(phi.function_space().dolfin_element().space_dimension())
+            phi_basis_matrix = np.zeros(phi.function_space().dolfin_element().space_dimension())
+            phi.restrict(phi_coefficients,
+                       phi.function_space().dolfin_element(),
+                       cwp,
+                       cwp.get_vertex_coordinates(),
+                       cwp)
+            for particle in cwp.particles:
+                x = particle.position
+                # Compute velocity at position x
+                phi.function_space().dolfin_element().evaluate_basis_all(phi_basis_matrix,
+                                                x,
+                                                cwp.get_vertex_coordinates(),
+                                                cwp.orientation())
+                e_p += particle.properties['q']*np.dot(phi_coefficients, phi_basis_matrix)
+        return e_p
+
+    def kinetic_energy(self):
+        e_k = 0.0
         for cwp in self.particle_map.itervalues():
             for particle in cwp.particles:
-                e += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
-        return e
+                e_k += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
+        return e_k
 
     def charge_density(self, f):
         'Particle charge weigthed at nodes'
         v2d = df.vertex_to_dof_map(f.function_space())
-        f_coefficients = np.zeros(f.function_space().dolfin_element().space_dimension())
-        f_basis_matrix = np.zeros(f.function_space().dolfin_element().space_dimension())
+
         for cwp in self.particle_map.itervalues():
+            f_coefficients = np.zeros(f.function_space().dolfin_element().space_dimension())
+            f_basis_matrix = np.zeros(f.function_space().dolfin_element().space_dimension())
             f.restrict(f_coefficients,
                        f.function_space().dolfin_element(),
                        cwp,
@@ -249,17 +270,36 @@ class LagrangianParticles:
                        cwp)
             for particle in cwp.particles:
                 x = particle.position
+                # print("x: ", x)
                 # Compute velocity at position x
                 f.function_space().dolfin_element().evaluate_basis_all(f_basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
                 c = cwp.entities(0)
+                # vertices = []
+                # for i in range(len(c)):
+                #      vertices.append(cwp.get_vertex_coordinates()[i*self.dim:(i+1)*self.dim])
+                # bary = self.barycentric_Interpolation(cwp.get_vertex_coordinates(), x)
                 dof = v2d[c]
-                if cwp.orientation() == 0:
-                    f.vector()[dof] =  f_coefficients + particle.properties['q']*np.roll(f_basis_matrix, 1)/cwp.volume()
-                else:
-                    f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix/cwp.volume()
+
+                # print("cwp.get_vertex_coordinates(): ", cwp.get_vertex_coordinates())
+                # print("orientation: " , cwp.orientation())
+                # print("f: ", f_coefficients)
+                # print("bary: ", f_basis_matrix)
+                # print("My bary: ", bary)
+                # print("c: ", c)
+                # print("dof: ", dof)
+                # print("dofs: ", v2d)
+                # f_dofs = f.function_space().dofmap().dofs()
+                # print("f_dofs: ", f_dofs)
+                # print(f.vector()[f_dofs])
+
+                # if cwp.orientation() == 0:
+                #     f.vector()[dof] =  f_coefficients + particle.properties['q']*np.roll(f_basis_matrix, 1)#/cwp.volume()
+                # else:
+                #     f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix#/cwp.volume()
+                f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix/cwp.volume()
         return f
 
     def step(self, E, t_step, dt):

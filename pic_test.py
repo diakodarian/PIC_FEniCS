@@ -16,9 +16,9 @@ comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
 d = 2              # Space dimension
-M = [60,60,30]     # Number of grid points
-N_e = 60           # Number of electrons
-N_i = 60           # Number of ions
+M = [50,50,30]     # Number of grid points
+N_e = 70           # Number of electrons
+N_i = 70           # Number of ions
 tot_time = 100     # Total simulation time
 dt = 0.001         # time step
 
@@ -88,7 +88,7 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
                        alpha_e, alpha_i, random_domain, initial_type)
 
 # Tests:
-# initial_positions = [[0.2, 0.1], [0.1, 0.9]]
+# initial_positions = [[0.3, 0.1], [1./6., 0.9]]
 # initial_velocities = [[0.,0.], [0.,0.]]
 # initial_velocities = np.array(initial_velocities)
 # initial_positions = np.array(initial_positions)
@@ -140,6 +140,7 @@ plt.ion()
 save = True
 
 Ek = []
+Ep = []
 t = []
 for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
@@ -155,7 +156,7 @@ for i, step in enumerate(range(tot_time)):
     # print(f.vector()[f_dofs])
     # coor = f.function_space().mesh().coordinates()
     # for i, value in enumerate(f.compute_vertex_values()):
-    #     print('vertex %d, x = %s, f = %g' %
+    #     print('f: vertex %d, x = %s, f = %g' %
     #           (i, tuple(coor[i]), value))
     #
     # sys.exit()
@@ -166,7 +167,7 @@ for i, step in enumerate(range(tot_time)):
 
     # coor = rho.function_space().mesh().coordinates()
     # for i, value in enumerate(rho.compute_vertex_values()):
-    #     print('vertex %d, x = %s, f = %g' %
+    #     print('rho: vertex %d, x = %s, rho = %g' %
     #           (i, tuple(coor[i]), value))
     # sys.exit()
     if periodic_field_solver:
@@ -182,7 +183,8 @@ for i, step in enumerate(range(tot_time)):
     if data_to_file:
         lp.write_to_file(to_file)
 
-    Ek.append(lp.energies())
+    Ek.append(lp.kinetic_energy())
+    Ep.append(lp.potential_energy(phi))
     t.append(step*dt)
     lp.scatter_new(fig)
     fig.suptitle('At step %d' % step)
@@ -196,9 +198,15 @@ if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    plot(phi, interactive=True)
-    plot(rho, interactive=True)
-    plot(E, interactive=True)
+    to_file = open('energies.txt', 'w')
+    for i,j,k in zip(t, Ek, Ep):
+        to_file.write("%f %f %f \n" %(i, j, k))
+    to_file.close()
+    # plot(phi, interactive=True)
+    # plot(rho, interactive=True)
+    # plot(E, interactive=True)
+
     fig = plt.figure()
-    plt.plot(t,Ek)
+    plt.plot(t,Ek, '-b')
+    plt.plot(t,Ep, '-r')
     plt.show()
