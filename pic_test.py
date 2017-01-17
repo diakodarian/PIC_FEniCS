@@ -16,13 +16,15 @@ comm = pyMPI.COMM_WORLD
 
 # Simulation parameters:
 d = 2              # Space dimension
-M = [50,50,30]     # Number of grid points
-N_e = 70           # Number of electrons
-N_i = 70           # Number of ions
-tot_time = 100     # Total simulation time
-dt = 0.001         # time step
+M = [70,70,30]     # Number of grid points
+N_e = 50           # Number of electrons
+N_i = 50          # Number of ions
+tot_time = 500     # Total simulation time
+dt = 0.0001         # time step
 
 # Physical parameters
+epsilon_0 = 1.       # Permittivity of vacuum
+mu_0 = 1.            # Permeability of vacuum
 rho_p = 8.*N_e       # Plasma density
 T_e = 0.              # Temperature - electrons
 T_i = 0.              # Temperature - ions
@@ -30,7 +32,7 @@ kB = 1.               # Boltzmann's constant
 e = 1.                # Elementary charge
 Z = 1                # Atomic number
 m_e = 1.              # particle mass - electron
-m_i = 100.            # particle mass - ion
+m_i = 1836.15267389            # particle mass - ion
 
 alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
 alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
@@ -101,12 +103,12 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
 #
 # key = 'm'
 # properties.setdefault(key, [])
-# properties[key].append(m_e)
-# properties[key].append(m_i)
+# properties[key].append(w*m_e)
+# properties[key].append(w*m_i)
 #
-# print(initial_positions)
-# print(initial_velocities)
-# print(properties)
+#print("initial_positions: ", initial_positions)
+#print("initial_velocities: ", initial_velocities)
+# print("properties: ", properties)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
@@ -141,11 +143,11 @@ save = True
 
 Ek = []
 Ep = []
+Et = []
 t = []
 for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
         print("t: ", step)
-
 
     f = Constant("0.0")
     #f = Expression("sin(2*pi*x[0])", degree=1)
@@ -163,7 +165,7 @@ for i, step in enumerate(range(tot_time)):
 
 
     rho = lp.charge_density(f)
-
+    rho = interpolate(rho, V)
 
     # coor = rho.function_space().mesh().coordinates()
     # for i, value in enumerate(rho.compute_vertex_values()):
@@ -177,15 +179,20 @@ for i, step in enumerate(range(tot_time)):
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, V_e)
 
-    lp.step(E, i, dt=dt)
+    f_dofs = E.function_space().dofmap().dofs()
+    print("max: ", E.vector()[f_dofs].max())
+    print("min: ", E.vector()[f_dofs].min())
+    energy = lp.energies(phi)
+    Ek.append(energy[0])
+    Ep.append(energy[1])
+    Et.append(energy[2])
+    t.append(step*dt)
 
+    lp.step(E, i, dt=dt)
     # Write to file
     if data_to_file:
         lp.write_to_file(to_file)
 
-    Ek.append(lp.kinetic_energy())
-    Ep.append(lp.potential_energy(phi))
-    t.append(step*dt)
     lp.scatter_new(fig)
     fig.suptitle('At step %d' % step)
     fig.canvas.draw()
@@ -199,14 +206,16 @@ if comm.Get_rank() == 0:
         to_file.close()
 
     to_file = open('energies.txt', 'w')
-    for i,j,k in zip(t, Ek, Ep):
-        to_file.write("%f %f %f \n" %(i, j, k))
+    for i,j,k, l in zip(t, Ek, Ep, Et):
+        to_file.write("%f %f %f \n" %(i, j, k, l))
     to_file.close()
-    # plot(phi, interactive=True)
-    # plot(rho, interactive=True)
-    # plot(E, interactive=True)
+    lp.particle_distribution()
+    plot(phi, interactive=True)
+    plot(rho, interactive=True)
+    plot(E, interactive=True)
 
     fig = plt.figure()
     plt.plot(t,Ek, '-b')
     plt.plot(t,Ep, '-r')
+    plt.plot(t, Et, '-g')
     plt.show()

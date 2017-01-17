@@ -67,9 +67,9 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
             x_comp = Langmuir_waves_positions(n_electrons, l1,l2)
             initial_electron_positions[:,0] = x_comp
         if oscillation_type == "2":
-            A = 0.001
+            A = 0.00001
             x_comp = initial_electron_positions[:,0]
-            delta = A*np.sin(4*np.pi*x_comp)
+            delta = A*np.sin(2*np.pi*x_comp)
             initial_electron_positions[:,0] += delta
         initial_positions.extend(initial_electron_positions)
     initial_positions.extend(initial_ion_positions)
@@ -133,14 +133,14 @@ def intialize_particle_properties(n_electrons, n_ions, w, q_e, q_i, m_e, m_i):
     # Add mass of particles to properties
     key = 'm'
     properties.setdefault(key, [])
-    properties[key].append(m_e)
+    properties[key].append(w*m_e)
 
     for i in range(n_electrons-1):
         properties.setdefault(key, [])
-        properties[key].append(m_e)
+        properties[key].append(w*m_e)
     for i in range(n_ions):
         properties.setdefault(key, [])
-        properties[key].append(m_i)
+        properties[key].append(w*m_i)
 
     return properties
 

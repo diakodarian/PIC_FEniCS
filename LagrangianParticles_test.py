@@ -14,6 +14,7 @@ import copy
 from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
+from particleDistribution import *
 import sys
 
 # Disable printing
@@ -229,8 +230,10 @@ class LagrangianParticles:
 
         raise ValueError('Singular system, no solution.')
 
-    def potential_energy(self, phi):
+    def energies(self, phi):
         e_p = 0.0
+        e_k = 0.0
+        e_t = 0.0
         for cwp in self.particle_map.itervalues():
             phi_coefficients = np.zeros(phi.function_space().dolfin_element().space_dimension())
             phi_basis_matrix = np.zeros(phi.function_space().dolfin_element().space_dimension())
@@ -240,6 +243,7 @@ class LagrangianParticles:
                        cwp.get_vertex_coordinates(),
                        cwp)
             for particle in cwp.particles:
+                e_k += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
                 x = particle.position
                 # Compute velocity at position x
                 phi.function_space().dolfin_element().evaluate_basis_all(phi_basis_matrix,
@@ -247,7 +251,8 @@ class LagrangianParticles:
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
                 e_p += particle.properties['q']*np.dot(phi_coefficients, phi_basis_matrix)
-        return e_p
+        e_t = e_k + e_p
+        return (e_k, e_p, e_t)
 
     def kinetic_energy(self):
         e_k = 0.0
@@ -289,17 +294,18 @@ class LagrangianParticles:
                 # print("bary: ", f_basis_matrix)
                 # print("My bary: ", bary)
                 # print("c: ", c)
-                # print("dof: ", dof)
+                #print("dof: ", dof)
                 # print("dofs: ", v2d)
-                # f_dofs = f.function_space().dofmap().dofs()
+                #f_dofs = f.function_space().dofmap().dofs()
                 # print("f_dofs: ", f_dofs)
-                # print(f.vector()[f_dofs])
+                #print("f_befor: ", f.vector()[dof])
 
                 # if cwp.orientation() == 0:
                 #     f.vector()[dof] =  f_coefficients + particle.properties['q']*np.roll(f_basis_matrix, 1)#/cwp.volume()
                 # else:
                 #     f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix#/cwp.volume()
                 f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix/cwp.volume()
+                #print("f_after: ", f.vector()[dof])
         return f
 
     def step(self, E, t_step, dt):
@@ -324,11 +330,16 @@ class LagrangianParticles:
                                                 cwp.orientation())
                 #l = self.BarycentricInterpolation(cwp.get_vertex_coordinates(), x)
                 # leap frog step
+                # print("E_rest: ", self.coefficients)
+                #dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 if t_step == 0:
                     u[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 else:
                     u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 x[:] = x[:] + dt*u[:]
+
+                # print("x after: ", x, "  charge: ", particle.properties['q'])
+                # print("u after: ", u)
         # Recompute the map
         stop_shift = start.stop()
         start = df.Timer('relocate')
@@ -400,7 +411,7 @@ class LagrangianParticles:
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
-            print("position befor: ", x)
+            # print("position befor: ", x)
             for dim in range(len(x)):
                 l_min = self.mesh.coordinates()[:,dim].min()
                 l_max = self.mesh.coordinates()[:,dim].max()
@@ -409,7 +420,7 @@ class LagrangianParticles:
                     x[dim] += l
                 if x[dim] > l_max:
                     x[dim] -= l
-            print("position after: ", x)
+            # print("position after: ", x)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
@@ -527,17 +538,62 @@ class LagrangianParticles:
                     xy_ions = np.array(ions)
                     xy_electrons = np.array(electrons)
                     ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
-                               label='%d' % proc,
-                               marker='*',
-                               c=scalarMap.to_rgba(proc),
+                               label='ions',
+                               marker='o',
+                               c='r',
                                edgecolor='none')
                     ax.scatter(xy_electrons[::skip, 0], xy_electrons[::skip, 1],
-                               label='%d' % proc,
+                               label='electrons',
                                marker = 'o',
-                               c=scalarMap.to_rgba(proc),
+                               c='b',
                                edgecolor='none')
             ax.legend(loc='best')
             ax.axis([0, 1, 0, 1])
+
+    def particle_distribution(self):
+        # Psarticle distribution
+        p_map = self.particle_map
+        all_particles = np.zeros(self.num_processes, dtype='I')
+        my_particles = p_map.total_number_of_particles()
+        # Root learns about count of particles on all processes
+        comm.Gather(np.array([my_particles], 'I'), all_particles, root=0)
+
+        # Slaves should send to master
+        if self.myrank > 0:
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    p.send(0)
+        else:
+            # Receive on master
+            received_ions = defaultdict(list)
+            received_electrons = defaultdict(list)
+            for cwp in p_map.itervalues():
+                for p in cwp.particles:
+                    if p.properties['q'] == 8:
+                        received_ions[0].append(copy.copy(p.velocity))
+                    elif p.properties['q'] == -8:
+                        received_electrons[0].append(copy.copy(p.velocity))
+            for proc in self.other_processes:
+                # Receive all_particles[proc]
+                for j in range(all_particles[proc]):
+                    self.particle0.recv(proc)
+                    if self.particle0.properties['q'] == 8:
+                        received_ions[proc].append(copy.copy(self.particle0.velocity))
+                    elif self.particle0.properties['q'] == -8:
+                        received_electrons[proc].append(copy.copy(self.particle0.velocity))
+
+            for proc in received_ions:
+                # Plot only if there is something to plot
+                ions = received_ions[proc]
+                electrons = received_electrons[proc]
+                if (len(ions) > 0 and len(electrons) > 0):
+                    geo_dim = self.mesh.geometry().dim()
+                    v_ions = np.array(ions)
+                    v_electrons = np.array(electrons)
+                    alpha_i = np.std(v_ions, ddof=1)
+                    alpha_e = np.std(v_electrons, ddof=1)
+                    speed_distribution(v_ions, geo_dim, alpha_i, 1)
+                    speed_distribution(v_electrons, geo_dim, alpha_e, 0)
 
     def bar(self, fig):
         'Bar plot of particle distribution.'
