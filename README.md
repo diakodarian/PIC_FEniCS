@@ -2,6 +2,6 @@
 
 Particle in Cell code using FEniCS
 
-![VLC]([Imgur](http://i.imgur.com/fBQjDjy.gifv)
+![VideoLAN]([Imgur](http://i.imgur.com/fBQjDjy.gifv)
 
-![VLC](http://i.imgur.com/fBQjDjy.gif)
+![VideoLAN](http://i.imgur.com/fBQjDjy.gif)
