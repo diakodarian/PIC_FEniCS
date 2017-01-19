@@ -1,5 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpi4py import MPI as pyMPI
+import sys
+
+comm = pyMPI.COMM_WORLD
 
 def gaussian_distribution(v, sigma, mu=0.0):
      return 1/(sigma * np.sqrt(2 * np.pi))* np.exp( - (v-mu)**2 / (2*sigma**2) )

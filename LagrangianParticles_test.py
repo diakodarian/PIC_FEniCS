@@ -230,7 +230,7 @@ class LagrangianParticles:
 
         raise ValueError('Singular system, no solution.')
 
-    def energies(self, phi):
+    def potential_energy(self, phi):
         e_p = 0.0
         for cwp in self.particle_map.itervalues():
             phi_coefficients = np.zeros(phi.function_space().dolfin_element().space_dimension())
@@ -478,17 +478,17 @@ class LagrangianParticles:
             received_electrons = defaultdict(list)
             for cwp in p_map.itervalues():
                 for p in cwp.particles:
-                    if p.properties['q'] == 8:
+                    if np.sign(p.properties['q']) == 1.:
                         received_ions[0].append(copy.copy(p.position))
-                    elif p.properties['q'] == -8:
+                    elif np.sign(p.properties['q']) == -1.:
                         received_electrons[0].append(copy.copy(p.position))
             for proc in self.other_processes:
                 # Receive all_particles[proc]
                 for j in range(all_particles[proc]):
                     self.particle0.recv(proc)
-                    if self.particle0.properties['q'] == 8:
+                    if np.sing(self.particle0.properties['q']) == 1.:
                         received_ions[proc].append(copy.copy(self.particle0.position))
-                    elif self.particle0.properties['q'] == -8:
+                    elif np.sign(self.particle0.properties['q']) == -1.:
                         received_electrons[proc].append(copy.copy(self.particle0.position))
 
             cmap = cmx.get_cmap('viridis')
@@ -534,17 +534,17 @@ class LagrangianParticles:
             received_electrons = defaultdict(list)
             for cwp in p_map.itervalues():
                 for p in cwp.particles:
-                    if p.properties['q'] == 8:
+                    if np.sign(p.properties['q']) == 1.:
                         received_ions[0].append(copy.copy(p.velocity))
-                    elif p.properties['q'] == -8:
+                    elif np.sign(p.properties['q']) == -1.:
                         received_electrons[0].append(copy.copy(p.velocity))
             for proc in self.other_processes:
                 # Receive all_particles[proc]
                 for j in range(all_particles[proc]):
                     self.particle0.recv(proc)
-                    if self.particle0.properties['q'] == 8:
+                    if np.sign(self.particle0.properties['q']) == 1.:
                         received_ions[proc].append(copy.copy(self.particle0.velocity))
-                    elif self.particle0.properties['q'] == -8:
+                    elif np.sign(self.particle0.properties['q']) == -1.:
                         received_electrons[proc].append(copy.copy(self.particle0.velocity))
 
             for proc in received_ions:

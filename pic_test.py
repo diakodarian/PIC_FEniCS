@@ -21,9 +21,9 @@ d = 2              # Space dimension
 M = [32,32,30]     # Number of grid points
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
 l1 = 0.
-l2 = 6.28#2.*np.pi
+l2 = 2.*np.pi
 w1 = 0.
-w2 = 6.28#2.*np.pi
+w2 = 2.*np.pi
 h1 = 0.
 h2 = 1.
 
@@ -48,7 +48,7 @@ if d == 2:
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
 n_pr_super_particle = 8  # Number of particles per super particle
-tot_time = 25     # Total simulation time
+tot_time = 2     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
@@ -65,7 +65,7 @@ kB = 1.               # Boltzmann's constant
 e = 1.                # Elementary charge
 Z = 1                # Atomic number
 m_e = 1.              # particle mass - electron
-m_i = 1836.#15267389            # particle mass - ion
+m_i = 1836.15267389            # particle mass - ion
 
 alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
 alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
@@ -108,7 +108,7 @@ fig = plt.figure()
 lp.scatter_new(fig)
 fig.suptitle('Initial')
 
-data_to_file = True
+data_to_file = False
 
 if comm.Get_rank() == 0:
     fig.show()
@@ -149,7 +149,7 @@ for i, step in enumerate(range(tot_time)):
 
     info = lp.step(E, i, dt=dt)
     Ek.append(info[2])
-    energy = lp.energies(phi)
+    energy = lp.potential_energy(phi)
     Ep.append(energy)
     t.append(step*dt)
     # Write to file
