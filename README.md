@@ -2,6 +2,4 @@
 
 Particle in Cell code using FEniCS
 
-![VideoLAN]([Imgur](http://i.imgur.com/fBQjDjy.gifv)
-
-![VideoLAN](http://i.imgur.com/fBQjDjy.gif)
+<a href="https://imgflip.com/gif/1hykst"><img src="https://i.imgflip.com/1hykst.gif" title="made at imgflip.com"/></a>
