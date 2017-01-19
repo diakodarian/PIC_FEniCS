@@ -7,6 +7,7 @@ from scipy import stats
 t = []
 ek = []
 ep = []
+et = []
 
 f = open('energies.txt', 'r').readlines()
 N = len(f)-1
@@ -15,6 +16,7 @@ for i in range(0,N):
     t.append(w[0])
     ek.append(w[1])
     ep.append(w[2])
+    et.append(w[3])
 
 # Plot the figure
 g_ratio = 1.61803398875
@@ -32,18 +34,18 @@ plt.rcParams['legend.fontsize'] = 14*1.1
 plt.rcParams['lines.linewidth'] = 2.0
 plt.rcParams['axes.color_cycle'] = '#348ABD', '#A60628', '#15efe4','#b009bf', '#1e0eb2', '#33c452', '#ef7b15', '#841654', '#2a296d', '#bcbf09'
 
-l = array(t, dtype=float)*1400000
 
 fig = plt.figure()
 plt.plot(t, ek, label='Kinetic energy')
 plt.plot(t, ep, label='Potential energy')
-#plt.plot(t, l, label='linear')
+plt.plot(t, et, label='Total energy')
 
 plt.xlabel('Time $[s]$',fontsize=18)
 plt.ylabel('Energies',fontsize=18)
 plt.title('Langmuir waves',fontsize=20)
-# plt.xlim()
-# plt.ylim()
+a = 25*0.251327
+plt.xlim(0,a)
+plt.ylim(-0.15,0.32)
 plt.legend(loc='best')
 plt.grid(True)
 fig.set_tight_layout(True)

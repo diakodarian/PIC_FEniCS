@@ -232,8 +232,6 @@ class LagrangianParticles:
 
     def energies(self, phi):
         e_p = 0.0
-        e_k = 0.0
-        e_t = 0.0
         for cwp in self.particle_map.itervalues():
             phi_coefficients = np.zeros(phi.function_space().dolfin_element().space_dimension())
             phi_basis_matrix = np.zeros(phi.function_space().dolfin_element().space_dimension())
@@ -243,16 +241,14 @@ class LagrangianParticles:
                        cwp.get_vertex_coordinates(),
                        cwp)
             for particle in cwp.particles:
-                e_k += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
                 x = particle.position
                 # Compute velocity at position x
                 phi.function_space().dolfin_element().evaluate_basis_all(phi_basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
-                e_p += particle.properties['q']*np.dot(phi_coefficients, phi_basis_matrix)
-        e_t = e_k + e_p
-        return (e_k, e_p, e_t)
+                e_p += 0.5*particle.properties['q']*np.dot(phi_coefficients, phi_basis_matrix)
+        return e_p
 
     def kinetic_energy(self):
         e_k = 0.0
@@ -275,42 +271,21 @@ class LagrangianParticles:
                        cwp)
             for particle in cwp.particles:
                 x = particle.position
-                # print("x: ", x)
                 # Compute velocity at position x
                 f.function_space().dolfin_element().evaluate_basis_all(f_basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
                 c = cwp.entities(0)
-                # vertices = []
-                # for i in range(len(c)):
-                #      vertices.append(cwp.get_vertex_coordinates()[i*self.dim:(i+1)*self.dim])
-                # bary = self.barycentric_Interpolation(cwp.get_vertex_coordinates(), x)
                 dof = v2d[c]
-
-                # print("cwp.get_vertex_coordinates(): ", cwp.get_vertex_coordinates())
-                # print("orientation: " , cwp.orientation())
-                # print("f: ", f_coefficients)
-                # print("bary: ", f_basis_matrix)
-                # print("My bary: ", bary)
-                # print("c: ", c)
-                #print("dof: ", dof)
-                # print("dofs: ", v2d)
-                #f_dofs = f.function_space().dofmap().dofs()
-                # print("f_dofs: ", f_dofs)
-                #print("f_befor: ", f.vector()[dof])
-
-                # if cwp.orientation() == 0:
-                #     f.vector()[dof] =  f_coefficients + particle.properties['q']*np.roll(f_basis_matrix, 1)#/cwp.volume()
-                # else:
-                #     f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix#/cwp.volume()
-                f.vector()[dof] =  f_coefficients + particle.properties['q']*f_basis_matrix/cwp.volume()
-                #print("f_after: ", f.vector()[dof])
+                f_coefficients += particle.properties['q']*f_basis_matrix/cwp.volume()
+            f.vector()[dof] = f_coefficients
         return f
 
     def step(self, E, t_step, dt):
         'Move particles by leap frog'
         start = df.Timer('shift')
+        e_k = 0.0
         for cwp in self.particle_map.itervalues():
             # Restrict once per cell
             E.restrict(self.coefficients,
@@ -321,32 +296,26 @@ class LagrangianParticles:
             for particle in cwp.particles: #i,particle in enumerate(cwp.particles)
                 x = particle.position
                 u = particle.velocity
-                # print("x: ", x, "  charge: ", particle.properties['q'])
-                # print("u: ", u)
                 # Compute velocity at position x
                 self.element.evaluate_basis_all(self.basis_matrix,
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
-                #l = self.BarycentricInterpolation(cwp.get_vertex_coordinates(), x)
                 # leap frog step
-                # print("E_rest: ", self.coefficients)
-                #dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                u_old = u[:]
                 if t_step == 0:
                     u[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 else:
                     u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                    e_k += (1./2.)*particle.properties['m']*np.dot(u_old[:], u[:])
                 x[:] = x[:] + dt*u[:]
-
-                # print("x after: ", x, "  charge: ", particle.properties['q'])
-                # print("u after: ", u)
         # Recompute the map
         stop_shift = start.stop()
         start = df.Timer('relocate')
         info = self.relocate()
         stop_reloc = start.stop()
         # We return computation time per process
-        return (stop_shift, stop_reloc)
+        return (stop_shift, stop_reloc, e_k)
 
     def relocate(self):
         # Relocate particles on cells and processors
@@ -411,16 +380,12 @@ class LagrangianParticles:
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
-            # print("position befor: ", x)
             for dim in range(len(x)):
                 l_min = self.mesh.coordinates()[:,dim].min()
                 l_max = self.mesh.coordinates()[:,dim].max()
                 l = l_max - l_min
-                if x[dim] < l_min:
-                    x[dim] += l
-                if x[dim] > l_max:
-                    x[dim] -= l
-            # print("position after: ", x)
+                if x[dim] < l_min or x[dim] > l_max:
+                    x[dim] = (x[dim]+abs(l_min))%l + l_min
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
@@ -633,17 +598,17 @@ class LagrangianParticles:
             received_electrons = defaultdict(list)
             for cwp in p_map.itervalues():
                 for p in cwp.particles:
-                    if p.properties['q'] == 8:
+                    if np.sign(p.properties['q']) == 1.:
                         received_ions[0].append(copy.copy(p.position))
-                    elif p.properties['q'] == -8:
+                    elif np.sign(p.properties['q']) == -1.:
                         received_electrons[0].append(copy.copy(p.position))
             for proc in self.other_processes:
                 # Receive all_particles[proc]
                 for j in range(all_particles[proc]):
                     self.particle0.recv(proc)
-                    if self.particle0.properties['q'] == 8:
+                    if np.sing(self.particle0.properties['q']) == 1.:
                         received_ions[proc].append(copy.copy(self.particle0.position))
-                    elif self.particle0.properties['q'] == -8:
+                    elif np.sign(self.particle0.properties['q']) == -1.:
                         received_electrons[proc].append(copy.copy(self.particle0.position))
 
             for proc in received_ions:

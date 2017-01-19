@@ -4,10 +4,13 @@ import matplotlib.pyplot as plt
 def gaussian_distribution(v, sigma, mu=0.0):
      return 1/(sigma * np.sqrt(2 * np.pi))* np.exp( - (v-mu)**2 / (2*sigma**2) )
 
-def boltzmann_distribution(v, sigma, mu=0.0):
-    return 4.*np.pi*v**2/(sigma*np.sqrt(2 * np.pi))**3*np.exp( - (v - mu)**2 / (2.*sigma**2) )
+def boltzmann_distribution(v, d, sigma, mu=0.0):
+    if d == 2:
+        return (v/sigma**2)*np.exp( - (v - mu)**2 / (2.*sigma**2) )
+    if d == 3:
+        return 4.*np.pi*v**2/(sigma*np.sqrt(2 * np.pi))**3*np.exp( - (v - mu)**2 / (2.*sigma**2) )
 
-def hist_plot(distribution, v, sigma, file_name, mu = 0.0, n_bins = 100):
+def hist_plot(distribution, v, sigma, d, file_name, mu = 0.0, n_bins = 100):
     fig = plt.figure()
     count, bins, ignored = plt.hist(v, n_bins, normed=True)
     if distribution == 'Gaussian':
@@ -16,7 +19,7 @@ def hist_plot(distribution, v, sigma, file_name, mu = 0.0, n_bins = 100):
         x_label = 'velocity, v_i'
         y_label = 'f(v_i)'
     if distribution == 'Boltzmann':
-        f = boltzmann_distribution(bins, sigma, 0.0)
+        f = boltzmann_distribution(bins, d, sigma, 0.0)
         title = 'Maxwell-Boltzmann distribution'
         x_label = 'speed, v'
         y_label = 'f(v)'
@@ -39,10 +42,10 @@ def speed_distribution(v, d, alpha, ions):
         v_i = v[:,i]  # velocity components
         s = np.std(v_i, ddof=1)
         print "std:: ", s, ",   alpha:  ", alpha
-        hist_plot('Gaussian', v_i, alpha, file_names[i], 0.0, n_bins)
+        hist_plot('Gaussian', v_i, alpha, d, file_names[i], 0.0, n_bins)
         v_2 += v_i**2 # Speed squared
     v_sqrt = np.sqrt(v_2) # Speed
-    hist_plot('Boltzmann', v_sqrt, alpha, file_names[-1], 0.0, n_bins)
+    hist_plot('Boltzmann', v_sqrt, alpha, d, file_names[-1], 0.0, n_bins)
     plt.show()
 
 if __name__ == '__main__':

@@ -15,6 +15,7 @@ def periodic_bcs(mesh, l):
             self.Lx_right = L[2]
             self.Ly_left = L[1]
             self.Ly_right = L[3]
+            
         def inside(self, x, on_boundary):
             return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
                    (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or

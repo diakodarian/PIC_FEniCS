@@ -13,7 +13,7 @@ rank = comm.Get_rank()
 def periodic_solver(f, V):
 
     # Create Krylov solver
-    solver = PETScKrylovSolver('cg', 'hypre_amg')#'gmres', 'ilu')
+    solver = PETScKrylovSolver('cg')#, 'hypre_amg')#'gmres', 'ilu')
 
     solver.parameters["absolute_tolerance"] = 1e-14
     solver.parameters["relative_tolerance"] = 1e-12
@@ -26,7 +26,7 @@ def periodic_solver(f, V):
     u = TrialFunction(V)
     v = TestFunction(V)
 
-    a = inner(grad(u), grad(v))*dx
+    a = inner(nabla_grad(u), nabla_grad(v))*dx
     L = f*v*dx
 
     A, b = assemble_system(a, L)
@@ -70,9 +70,9 @@ def E_field(phi, VV):
     degree = V.ufl_element().degree()
     W = VectorFunctionSpace(mesh, 'CG', degree)
 
-    grad_phi = Function(VV)
-    grad_phi = project(-1*grad(phi), VV)
-    e_field = project(grad_phi, W)
+    grad_phi = Function(W)
+    grad_phi = project(-1*grad(phi), W)
+    e_field = grad_phi#project(grad_phi, W)
     return e_field
 
 def test_periodic_solver():
@@ -193,17 +193,24 @@ def test_dirichlet_solver():
             #           (i, tuple(coor[i]), value, flux_y_exact(*coor[i])))
 
 def test_D_solver():
-    divs = [[3,3], [5,5], [10,10]]
-    L = [[-1., -1, 2., 1.]]
-    mesh_type = ["UnitHyperCube", "HyperCube"]
+    divs = [[3,3], [5,5], [7,7], [10,10]]
+    L = [[0., 0., 1., 1.]]
+    print_norm = True
+    print_max_error = True
+
+    mesh_type = ["UnitHyperCube"]#, "HyperCube"]
     tol = 1E-10
-    u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=2)
+    u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=4)
+    E_ex = Expression('-2*x[0]', degree=4)
+    E_ey = Expression('-4*x[1]', degree=4)
     f = Constant(-6.0)
 
     for i in range(len(mesh_type)):
         print("------ Test of mesh type ", mesh_type[i], "   ------")
         h = []
-        E = []
+        E1 = []
+        E2 = []
+        E3 = []
         for j in range(len(divs)):
             divisions = divs[j]
             print(len(divisions), "D test with ", divisions, " nodes.")
@@ -213,20 +220,42 @@ def test_D_solver():
                 mesh = HyperCube(L[0], divisions)
             bc, V, VV, V_g = dirichlet_bcs(u_D, mesh)
             phi = dirichlet_solver(f, V, bc)
-            E.append(errornorm(u_D, phi, "l2"))
-            h.append(1./divisions[0])
-        from math import log as ln
-        for i in range(1, len(E)):
-            r = ln(E[i]/E[i-1])/ln(h[i]/h[i-1])
-            print("h =%10.2E E =%10.2E r =%.2f" %(h[i], E[i], r))
+
+            E = E_field(phi, V_g)
+            E_x, E_y = E.split(deepcopy=True)
+            if print_norm:
+                E1.append(errornorm(u_D, phi, "l2"))
+                E2.append(errornorm(E_ex, E_x, "l2"))
+                E3.append(errornorm(E_ey, E_y, "l2"))
+                h.append(1./divisions[0])
+            if print_max_error:
+                coor = phi.function_space().mesh().coordinates()
+                error = np.zeros(len(coor))
+                for i, value in enumerate(E_x.compute_vertex_values()):
+                    error[i] = np.abs(value - E_ex(*coor[i]))
+                print("Max error: ", error.max())
+                print("Min error: ", error.min())
+        if print_norm:
+            from math import log as ln
+            for i in range(1, len(E1)):
+                r1 = ln(E1[i]/E1[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E1 =%10.2E r1 =%.2f" %(h[i], E1[i], r1))
+            for i in range(1, len(E2)):
+                r2 = ln(E2[i]/E2[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E2 =%10.2E r2 =%.2f" %(h[i], E2[i], r2))
+            for i in range(1,len(E3)):
+                r3 = ln(E3[i]/E3[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E3 =%10.2E r3 =%.2f" %(h[i], E3[i], r3))
 
 
 def test_p_solver():
-    divs = [[3,3], [5,5], [10,10], [20,20], [30,30], [40,40], [50,50], [100,100]]
+    divs = [[3,3], [5,5], [10,10], [11,11], [12,12], [13,13], [15,15]]
     l_unit = [[0., 0., 1., 1.]]
     l_hyper = [[-1., -1, 1., 1.]]
+    print_norm = False
+    print_max_error = True
 
-    mesh_type = ["UnitHyperCube", "HyperCube"]
+    mesh_type = ["UnitHyperCube"]#, "HyperCube"]
     tol = 1E-10
 
     for i in range(len(mesh_type)):
@@ -234,6 +263,7 @@ def test_p_solver():
         h = []
         E1 = []
         E2 = []
+        E3 = []
         for j in range(len(divs)):
             divisions = divs[j]
             print(len(divisions), "D test with ", divisions, " nodes.")
@@ -256,27 +286,49 @@ def test_p_solver():
                     def eval(self, values, x):
                         values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
 
-                class Exact_E(Expression):
+                class Exact_Ex(Expression):
                     def eval(self, values, x):
-                        values[0] = -2.0*DOLFIN_PI*cos(2.0*DOLFIN_PI*x[0])
-                        values[1] = -2.0*DOLFIN_PI*cos(2.0*DOLFIN_PI*x[1])
+                        values[0] = -2.0*DOLFIN_PI*cos(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
+                class Exact_Ey(Expression):
+                    def eval(self, values, x):
+                        values[0] = -2.0*DOLFIN_PI*sin(2.0*DOLFIN_PI*x[0])*cos(2.0*DOLFIN_PI*x[1])
 
             f = Source(degree=4)
             phi_e = Exact(degree=4)
-            E_e = Exact_E(degree=4)
+            E_ex = Exact_Ex(degree=4)
+            E_ey = Exact_Ey(degree=4)
 
             phi = periodic_solver(f, V)
             E = E_field(phi, V_g)
+            E_x, E_y = E.split(deepcopy=True)
 
-            E1.append(errornorm(phi_e, phi, "l2"))
-            E2.append(errornorm(E_e, E, "l2"))
-            h.append(1./divisions[0])
-        from math import log as ln
-        for i in range(1, len(E1)):
-            r1 = ln(E1[i]/E1[i-1])/ln(h[i]/h[i-1])
-            print("h =%10.2E E1 =%10.2E r1 =%.2f" %(h[i], E1[i], r1))
-            r2 = ln(E2[i]/E2[i-1])/ln(h[i]/h[i-1])
-            print("h =%10.2E E1 =%10.2E r2 =%.2f" %(h[i], E2[i], r2))
+            # plot(E_x, title = 'Ex', interactive=True)
+            # plot(E_x, title = 'E_ex', interactive=True)
+
+            if print_norm:
+                E1.append(errornorm(phi_e, phi, "l2"))
+                E2.append(errornorm(E_ex, E_x, "l2"))
+                E3.append(errornorm(E_ey, E_y, "l2"))
+                h.append(1./divisions[0])
+            if print_max_error:
+                coor = phi.function_space().mesh().coordinates()
+                error = np.zeros(len(coor))
+                for i, value in enumerate(E_x.compute_vertex_values()):
+                    error[i] = np.abs(value - E_ex(*coor[i]))
+                print("Max error: ", error.max())
+                print("Min error: ", error.min())
+        if print_norm:
+            from math import log as ln
+            for i in range(1, len(E1)):
+                r1 = ln(E1[i]/E1[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E1 =%10.2E r1 =%.2f" %(h[i], E1[i], r1))
+            for i in range(1, len(E2)):
+                r2 = ln(E2[i]/E2[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E2 =%10.2E r2 =%.2f" %(h[i], E2[i], r2))
+            for i in range(1,len(E3)):
+                r3 = ln(E3[i]/E3[i-1])/ln(h[i]/h[i-1])
+                print("h =%10.2E E3 =%10.2E r3 =%.2f" %(h[i], E3[i], r3))
+
 if __name__ == '__main__':
     import time
     from mesh_types import *

@@ -31,14 +31,14 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
         h2 = L[5]
         if random_domain == 'shpere':
             initial_electron_positions = \
-                    RandomSphere([0.5,0.5,0.5], 0.5).generate([N_e, N_e, N_e])
+                    RandomSphere([0.5,0.5,0.5], 0.5).generate([N_e, 1,1])
             initial_ion_positions = \
-                    RandomSphere([0.5,0.5,0.5], 0.5).generate([N_i, N_i, N_i])
+                    RandomSphere([0.5,0.5,0.5], 0.5).generate([N_i, 1,1])
         elif random_domain == 'box':
             initial_electron_positions = \
-            RandomBox([l1,w1,h1],[l2,w2,h2]).generate([N_e,N_e,N_e])
+            RandomBox([l1,w1,h1],[l2,w2,h2]).generate([N_e,1,1])
             initial_ion_positions = \
-            RandomBox([l1,w1,h1],[l2,w2,h2]).generate([N_i,N_i,N_i])
+            RandomBox([l1,w1,h1],[l2,w2,h2]).generate([N_i,1,1])
     if d == 2:
         l1 = L[0]
         w1 = L[1]
@@ -46,14 +46,14 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
         w2 = L[3]
         if random_domain == 'shpere':
             initial_electron_positions = \
-            RandomCircle([0.5,0.5], 0.5).generate([N_e, N_e])
+            RandomCircle([0.5,0.5], 0.5).generate([N_e, 1])
             initial_ion_positions = \
-            RandomCircle([0.5,0.5], 0.5).generate([N_i, N_i])
+            RandomCircle([0.5,0.5], 0.5).generate([N_i, 1])
         elif random_domain == 'box':
             initial_electron_positions = \
-            RandomRectangle([l1,w1], [l2,w2]).generate([N_e, N_e])
+            RandomRectangle([l1,w1], [l2,w2]).generate([N_e, 1])
             initial_ion_positions = \
-            RandomRectangle([l1,w1], [l2,w2]).generate([N_i, N_i])
+            RandomRectangle([l1,w1], [l2,w2]).generate([N_i, 1])
 
     n_ions = len(initial_ion_positions)
     n_electrons = len(initial_electron_positions)
@@ -67,10 +67,17 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
             x_comp = Langmuir_waves_positions(n_electrons, l1,l2)
             initial_electron_positions[:,0] = x_comp
         if oscillation_type == "2":
-            A = 0.00001
+            A = 0.1
             x_comp = initial_electron_positions[:,0]
-            delta = A*np.sin(2*np.pi*x_comp)
+            delta = A*np.sin(x_comp)
             initial_electron_positions[:,0] += delta
+
+        x_comp = initial_electron_positions[:,0]
+        l = l2 - l1
+        for i in range(len(x_comp)):
+            if x_comp[i] < l1 or x_comp[i] > l2:
+                x_comp[i] = (x_comp[i]+abs(l1))%l + l1
+        initial_electron_positions[:,0] = x_comp
         initial_positions.extend(initial_electron_positions)
     initial_positions.extend(initial_ion_positions)
     initial_positions = np.array(initial_positions)

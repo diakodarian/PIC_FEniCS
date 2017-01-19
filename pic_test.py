@@ -14,45 +14,20 @@ import sys
 
 comm = pyMPI.COMM_WORLD
 
-# Simulation parameters:
-d = 2              # Space dimension
-M = [70,70,30]     # Number of grid points
-N_e = 50           # Number of electrons
-N_i = 50          # Number of ions
-tot_time = 500     # Total simulation time
-dt = 0.0001         # time step
-
-# Physical parameters
-epsilon_0 = 1.       # Permittivity of vacuum
-mu_0 = 1.            # Permeability of vacuum
-rho_p = 8.*N_e       # Plasma density
-T_e = 0.              # Temperature - electrons
-T_i = 0.              # Temperature - ions
-kB = 1.               # Boltzmann's constant
-e = 1.                # Elementary charge
-Z = 1                # Atomic number
-m_e = 1.              # particle mass - electron
-m_i = 1836.15267389            # particle mass - ion
-
-alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
-alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
-
-q_e = -e     # Electric charge - electron
-q_i = Z*e  # Electric charge - ions
-w = rho_p/N_e
-
 #-------------------------------------------------------------------------------
 #                           Create the mesh
 #-------------------------------------------------------------------------------
+d = 2              # Space dimension
+M = [32,32,30]     # Number of grid points
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
 l1 = 0.
-l2 = 1.
+l2 = 6.28#2.*np.pi
 w1 = 0.
-w2 = 1.
+w2 = 6.28#2.*np.pi
 h1 = 0.
 h2 = 1.
 
-mesh_dimensions = 'Unit_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
+mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
 if d == 3:
     divisions = [M[0], M[1], M[2]]
     if mesh_dimensions == 'Unit_dimensions':
@@ -70,15 +45,46 @@ if d == 2:
         L = [l1, w1, l2, w2]
         mesh = HyperCube(L, divisions)
 
+# Simulation parameters:
+n_pr_cell = 8        # Number of particels per cell
+n_pr_super_particle = 8  # Number of particles per super particle
+tot_time = 25     # Total simulation time
+dt = 0.251327       # time step
+
+n_cells = mesh.num_cells() # Number of cells
+N_e = n_pr_cell*n_cells       # Number of electrons
+N_i = n_pr_cell*n_cells       # Number of ions
+
+
+# Physical parameters
+epsilon_0 = 1.       # Permittivity of vacuum
+mu_0 = 1.            # Permeability of vacuum
+T_e = 0.              # Temperature - electrons
+T_i = 0.              # Temperature - ions
+kB = 1.               # Boltzmann's constant
+e = 1.                # Elementary charge
+Z = 1                # Atomic number
+m_e = 1.              # particle mass - electron
+m_i = 1836.#15267389            # particle mass - ion
+
+alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
+alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
+
+q_e = -e     # Electric charge - electron
+q_i = Z*e  # Electric charge - ions
+w = (l2*w2)/N_e #n_pr_super_particle
+
+
+
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
 periodic_field_solver = True # Periodic or Dirichlet bcs
 if periodic_field_solver:
-    V, VV, V_e = periodic_bcs(mesh, L)
+    V, VV, W = periodic_bcs(mesh, L)
 else:
     u_D = Constant(-6.0)
-    bc, V, VV, V_e = dirichlet_bcs(u_D, mesh)
+    bc, V, VV, W = dirichlet_bcs(u_D, mesh)
 
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
@@ -89,26 +95,6 @@ initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
                        alpha_e, alpha_i, random_domain, initial_type)
 
-# Tests:
-# initial_positions = [[0.3, 0.1], [1./6., 0.9]]
-# initial_velocities = [[0.,0.], [0.,0.]]
-# initial_velocities = np.array(initial_velocities)
-# initial_positions = np.array(initial_positions)
-#
-# properties = {}
-# key = 'q'
-# properties.setdefault(key, [])
-# properties[key].append(w*q_e)
-# properties[key].append(w*q_i)
-#
-# key = 'm'
-# properties.setdefault(key, [])
-# properties[key].append(w*m_e)
-# properties[key].append(w*m_i)
-#
-#print("initial_positions: ", initial_positions)
-#print("initial_velocities: ", initial_velocities)
-# print("properties: ", properties)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
@@ -122,12 +108,12 @@ fig = plt.figure()
 lp.scatter_new(fig)
 fig.suptitle('Initial')
 
-data_to_file = False
+data_to_file = True
 
 if comm.Get_rank() == 0:
     fig.show()
     if data_to_file:
-        to_file = open('data.xyz', 'w')
+        to_file = open('data/data.xyz', 'w')
         to_file.write("%d\n" %len(initial_positions))
         to_file.write("PIC \n")
         for p1, p2 in map(None,initial_positions[n_electrons:],
@@ -143,52 +129,29 @@ save = True
 
 Ek = []
 Ep = []
-Et = []
 t = []
 for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
         print("t: ", step)
 
-    f = Constant("0.0")
-    #f = Expression("sin(2*pi*x[0])", degree=1)
-    #f = Function(V)
-    f = interpolate(f, V)
-    # f_dofs = f.function_space().dofmap().dofs()
-    # print("f_dofs: ", f_dofs)
-    # print(f.vector()[f_dofs])
-    # coor = f.function_space().mesh().coordinates()
-    # for i, value in enumerate(f.compute_vertex_values()):
-    #     print('f: vertex %d, x = %s, f = %g' %
-    #           (i, tuple(coor[i]), value))
-    #
-    # sys.exit()
-
-
+    f = Function(V)
+    #f = Constant("0.0")
+    #f = interpolate(f, V)
     rho = lp.charge_density(f)
-    rho = interpolate(rho, V)
+    #rho = interpolate(rho, V)
 
-    # coor = rho.function_space().mesh().coordinates()
-    # for i, value in enumerate(rho.compute_vertex_values()):
-    #     print('rho: vertex %d, x = %s, rho = %g' %
-    #           (i, tuple(coor[i]), value))
-    # sys.exit()
     if periodic_field_solver:
         phi = periodic_solver(rho, V)
-        E = E_field(phi, V_e)
+        E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)
-        E = E_field(phi, V_e)
+        E = E_field(phi, W)
 
-    f_dofs = E.function_space().dofmap().dofs()
-    print("max: ", E.vector()[f_dofs].max())
-    print("min: ", E.vector()[f_dofs].min())
+    info = lp.step(E, i, dt=dt)
+    Ek.append(info[2])
     energy = lp.energies(phi)
-    Ek.append(energy[0])
-    Ep.append(energy[1])
-    Et.append(energy[2])
+    Ep.append(energy)
     t.append(step*dt)
-
-    lp.step(E, i, dt=dt)
     # Write to file
     if data_to_file:
         lp.write_to_file(to_file)
@@ -201,21 +164,24 @@ for i, step in enumerate(range(tot_time)):
 
     fig.clf()
 
+# Total energy
+Et = [i + j for i, j in zip(Ep, Ek)]
+
 if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    to_file = open('energies.txt', 'w')
+    to_file = open('data/energies.txt', 'w')
     for i,j,k, l in zip(t, Ek, Ep, Et):
-        to_file.write("%f %f %f \n" %(i, j, k, l))
+        to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
-    lp.particle_distribution()
-    plot(phi, interactive=True)
-    plot(rho, interactive=True)
-    plot(E, interactive=True)
-
-    fig = plt.figure()
-    plt.plot(t,Ek, '-b')
-    plt.plot(t,Ep, '-r')
-    plt.plot(t, Et, '-g')
-    plt.show()
+    # lp.particle_distribution()
+    # plot(phi, interactive=True)
+    # plot(rho, interactive=True)
+    # plot(E, interactive=True)
+    #
+    # fig = plt.figure()
+    # plt.plot(t,Ek, '-b')
+    # plt.plot(t,Ep, '-r')
+    # plt.plot(t, Et, '-g')
+    # plt.show()
