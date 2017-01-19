@@ -2,4 +2,4 @@
 
 Particle in Cell code using FEniCS
 
-![](http://imgur.com/fBQjDjy)
+![](http://i.imgur.com/fBQjDjy.gifv)
