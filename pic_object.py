@@ -27,24 +27,8 @@ w2 = 6.28#2.*np.pi
 h1 = 0.
 h2 = 1.
 
-mesh_dimensions = 'Arbitrary_dimensions' # Options: 'Unit_dimensions' or 'Arbitrary_dimensions'
-if d == 3:
-    divisions = [M[0], M[1], M[2]]
-    if mesh_dimensions == 'Unit_dimensions':
-        L = [0., 0., 0., 1., 1., 1.]
-        mesh = UnitHyperCube(divisions)
-    if mesh_dimensions == 'Arbitrary_dimensions':
-        L = [l1, w1, h1, l2, w2, h2]
-        mesh = HyperCube(L, divisions)
-if d == 2:
-    divisions = [M[0], M[1]]
-    if mesh_dimensions == 'Unit_dimensions':
-        L = [0., 0., 1., 1.]
-        mesh = UnitHyperCube(divisions)
-    if mesh_dimensions == 'Arbitrary_dimensions':
-        L = [l1, w1, l2, w2]
-        mesh = HyperCube(L, divisions)
-        #mesh = Mesh("sandbox/mesh.xml")
+L = [l1, w1, l2, w2]
+mesh = Mesh("mesh.xml")
 
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
@@ -87,6 +71,80 @@ else:
     u_D = Constant(-6.0)
     bc, V, VV, W = dirichlet_bcs(u_D, mesh)
 
+
+def periodic_solver(f, V, bc):
+
+    # Create Krylov solver
+    solver = PETScKrylovSolver('cg')#, 'hypre_amg')#'gmres', 'ilu')
+
+    solver.parameters["absolute_tolerance"] = 1e-14
+    solver.parameters["relative_tolerance"] = 1e-12
+    solver.parameters["maximum_iterations"] = 1000
+    #solver.parameters["monitor_convergence"] = True
+    solver.parameters["convergence_norm_type"] = "true"
+    #for item in solver.parameters.items(): print(item)
+
+    # Define variational problem
+    u = TrialFunction(V)
+    v = TestFunction(V)
+
+    a = inner(nabla_grad(u), nabla_grad(v))*dx
+    L = f*v*dx
+
+    A, b = assemble_system(a, L)
+
+    bc.apply(A)
+    bc.apply(b)
+
+    phi = Function(V)
+
+    solver.set_operator(A)
+
+    # Create vector that spans the null space and normalize
+    null_vec = Vector(phi.vector())
+    V.dofmap().set(null_vec, 1.0)
+    null_vec *= 1.0/null_vec.norm("l2")
+
+    # Create null space basis object and attach to PETSc matrix
+    null_space = VectorSpaceBasis([null_vec])
+    as_backend_type(A).set_nullspace(null_space)
+
+    # Orthogonalize RHS vector b with respect to the null space
+    null_space.orthogonalize(b);
+
+    # Solve
+    solver.solve(phi.vector(), b)
+    return phi
+
+class Source(Expression):
+    def eval(self, values, x):
+        if ((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
+            values[0] = 0.
+        else:
+            values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
+
+class RhoBCs(Expression):
+    def eval(self, values, x):
+        if near((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
+            values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
+        else:
+            values[0] = 0.
+
+class Exact(Expression):
+    def eval(self, values, x):
+        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
+
+f = RhoBCs(degree=4)
+rho = Source(degree=4)
+phi_e = Exact(degree=4)
+
+cylinder = 'on_boundary && near((pow(x[0],2)+pow(x[1],2)), 0.25)'
+bc = DirichletBC(V, f, cylinder)
+
+phi = periodic_solver(rho, V, bc)
+
+plot(phi, interactive=True)
+sys.exit()
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------

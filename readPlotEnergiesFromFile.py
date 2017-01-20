@@ -9,7 +9,7 @@ ek = []
 ep = []
 et = []
 
-f = open('energies.txt', 'r').readlines()
+f = open('energies_nonuniform_mesh.txt', 'r').readlines()
 N = len(f)-1
 for i in range(0,N):
     w = f[i].split()
@@ -18,6 +18,7 @@ for i in range(0,N):
     ep.append(w[2])
     et.append(w[3])
 
+print "len: ", len(t)
 # Plot the figure
 g_ratio = 1.61803398875
 width = 12
@@ -45,7 +46,7 @@ plt.ylabel('Energies',fontsize=18)
 plt.title('Langmuir waves',fontsize=20)
 a = 25*0.251327
 plt.xlim(0,a)
-plt.ylim(-0.15,0.32)
+#plt.ylim(-0.15,0.32)
 plt.legend(loc='best')
 plt.grid(True)
 fig.set_tight_layout(True)
