@@ -1,4 +1,4 @@
-from __future__ import print_function
+#from __future__ import print_function
 from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomRectangle, RandomBox, RandomSphere
 from FieldSolver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
@@ -21,14 +21,28 @@ d = 2              # Space dimension
 M = [32,32,30]     # Number of grid points
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
 l1 = 0.
-l2 = 6.28#2.*np.pi
+l2 = 2.*np.pi
 w1 = 0.
-w2 = 6.28#2.*np.pi
+w2 = 2.*np.pi
 h1 = 0.
 h2 = 1.
 
 L = [l1, w1, l2, w2]
 mesh = Mesh("mesh.xml")
+
+from pylab import show, triplot
+coords = mesh.coordinates()
+triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+show()
+#sys.exit()
+facet_f = FacetFunction('size_t', mesh, 0)
+DomainBoundary().mark(facet_f, 1)
+square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
+square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
+square_boundary.mark(facet_f, 2)
+
+plot(facet_f, interactive=True)
+sys.exit()
 
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
@@ -118,28 +132,32 @@ def periodic_solver(f, V, bc):
 
 class Source(Expression):
     def eval(self, values, x):
-        if ((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
-            values[0] = 0.
-        else:
-            values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
+        values[0] = 2.*sin(x[0])*sin(x[1])
+        # if ((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
+        #     values[0] = 0.
+        # else:
+        #     values[0] = 2.*sin(x[0])*sin(x[1])
 
 class RhoBCs(Expression):
     def eval(self, values, x):
-        if near((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
-            values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])*(8.0*DOLFIN_PI*DOLFIN_PI)
+        tol = 1E-5
+        if near((x[0]-np.pi)*(x[0]-np.pi)+(x[1]-np.pi)*(x[1]-np.pi), 0.25, tol):
+            values[0] = sin(x[0])*sin(x[1])
         else:
             values[0] = 0.
 
 class Exact(Expression):
     def eval(self, values, x):
-        values[0] = sin(2.0*DOLFIN_PI*x[0])*sin(2.0*DOLFIN_PI*x[1])
+        values[0] = sin(x[0])*sin(x[1])
 
 f = RhoBCs(degree=4)
 rho = Source(degree=4)
 phi_e = Exact(degree=4)
 
-cylinder = 'on_boundary && near((pow(x[0],2)+pow(x[1],2)), 0.25)'
-bc = DirichletBC(V, f, cylinder)
+cylinder = 'near((pow(x[0],2)+pow(x[1],2)), 0.25)' # on_boundary &&
+bc = DirichletBC(V, f, facet_f, 1)
+
+print bc.get_boundary_values()
 
 phi = periodic_solver(rho, V, bc)
 
