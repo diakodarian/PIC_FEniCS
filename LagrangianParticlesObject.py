@@ -339,29 +339,9 @@ class LagrangianParticles:
                             break
                     # Do a completely new search if not found by now
                     if not found:
-                        # If the particle hits the object remove it
-                        x = particle.position
-                        x0 = np.pi
-                        x1 = np.pi
-                        r = 0.5
-
-                        if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
-                            print("pos: ", x)
-                            particels_inside_object.append(cwp.index())
-                            particels_inside_object.append(i)
-                            # p_map.pop(cwp.index(), i)
-                        else:
-                            new_cell_id = self.locate(particle, particle.velocity)
+                        new_cell_id = self.locate(particle, particle.velocity)
                     # Record to map
                     new_cell_map[cwp.index()].append((new_cell_id, i))
-
-        # Remove all the particels inside the object
-        for i in xrange(0,len(particels_inside_object)/2,2):
-            cell_index = particels_inside_object[i]
-            particel_index = particels_inside_object[i+1]
-            print(cell_index)
-            print(particel_index)
-            particle = p_map.pop(cell_index, particel_index)
 
         # Rebuild locally the particles that end up on the process. Some
         # have cell_id == -1, i.e. they are on other process
@@ -408,6 +388,13 @@ class LagrangianParticles:
                 l = l_max - l_min
                 if x[dim] < l_min or x[dim] > l_max:
                     x[dim] = (x[dim]+abs(l_min))%l + l_min
+            # If the particle hits the object remove it
+            x0 = np.pi
+            x1 = np.pi
+            r = 0.5
+            if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
+                list_of_escaped_particles.remove(p)
+
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
@@ -516,12 +503,26 @@ class LagrangianParticles:
             cmap = cmx.get_cmap('viridis')
             cnorm = colors.Normalize(vmin=0, vmax=self.num_processes)
             scalarMap = cmx.ScalarMappable(norm=cnorm, cmap=cmap)
+            l_min = self.mesh.coordinates()[:,0].min()
+            l_max = self.mesh.coordinates()[:,1].max()
+            # theta goes from 0 to 2pi
+            theta = np.linspace(0, 2*np.pi, 100)
+
+            # the radius of the circle
+            r = np.sqrt(0.25)
+
+            # compute x1 and x2
+            x1 = np.pi + r*np.cos(theta)
+            x2 = np.pi + r*np.sin(theta)
+
+            ax.plot(x1, x2, c='k', linewidth=3)
+            ax.set_aspect(1)
 
             for proc in received_ions:
                 # Plot only if there is something to plot
                 ions = received_ions[proc]
                 electrons = received_electrons[proc]
-                if (len(ions) > 0 and len(electrons) > 0):
+                if (len(ions) > 0 or len(electrons) > 0):
                     xy_ions = np.array(ions)
                     xy_electrons = np.array(electrons)
                     ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
@@ -535,7 +536,7 @@ class LagrangianParticles:
                                c='b',
                                edgecolor='none')
             ax.legend(loc='best')
-            ax.axis([0, 1, 0, 1])
+            ax.axis([l_min, l_max, l_min, l_max])
 
     def particle_distribution(self):
         # Psarticle distribution

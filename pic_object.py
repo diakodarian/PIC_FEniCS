@@ -62,12 +62,12 @@ square_boundary.mark(facet_f, 2)
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
 n_pr_super_particle = 8  # Number of particles per super particle
-tot_time = 2     # Total simulation time
+tot_time = 20     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
-N_e = 1#n_pr_cell*n_cells       # Number of electrons
-N_i = 1#n_pr_cell*n_cells       # Number of ions
+N_e = 10#n_pr_cell*n_cells       # Number of electrons
+N_i = 10#n_pr_cell*n_cells       # Number of ions
 # print "n_cells: ", n_cells
 
 # Physical parameters
@@ -102,26 +102,26 @@ else:
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
-# random_domain = 'box' # Options: 'sphere' or 'box'
-# initial_type = 'object' # 'Langmuir_waves', 'object' or 'random'
-# initial_positions, initial_velocities, properties, n_electrons = \
-# initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
-#                        alpha_e, alpha_i, random_domain, initial_type)
+random_domain = 'box' # Options: 'sphere' or 'box'
+initial_type = 'object' # 'Langmuir_waves', 'object' or 'random'
+initial_positions, initial_velocities, properties, n_electrons = \
+initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
+                       alpha_e, alpha_i, random_domain, initial_type)
 
-initial_positions = np.array([[2.60, 3.0],[2.60, 3.2]])
-initial_velocities = np.array([[2.60, 0.0],[2.60, .0]])
-properties = {}
-key = 'q'
-properties.setdefault(key, [])
-properties[key].append(w*q_e)
-properties[key].append(w*q_i)
-
-key = 'm'
-properties.setdefault(key, [])
-properties[key].append(w*m_e)
-properties[key].append(w*m_i)
-
-n_electrons = 1
+# initial_positions = np.array([[2.50, 3.0],[2.50, 3.2]])
+# initial_velocities = np.array([[1., 0.0],[0.3, .0]])
+# properties = {}
+# key = 'q'
+# properties.setdefault(key, [])
+# properties[key].append(w*q_e)
+# properties[key].append(w*q_i)
+#
+# key = 'm'
+# properties.setdefault(key, [])
+# properties[key].append(w*m_e)
+# properties[key].append(w*m_i)
+#
+# n_electrons = 1
 # print(initial_positions)
 # print(initial_velocities)
 # print(properties)
@@ -177,6 +177,11 @@ for i, step in enumerate(range(tot_time)):
         E = E_field(phi, W)
 
     info = lp.step(E, i, dt=dt)
+    tot_n, n_proc = lp.total_number_of_particles()
+    print("total_number_of_particles: ", tot_n)
+    print("on proc: ", n_proc)
+    print("   ")
+
     Ek.append(info[2])
     energy = lp.potential_energy(phi)
     Ep.append(energy)
