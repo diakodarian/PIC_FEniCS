@@ -55,11 +55,57 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
             initial_ion_positions = \
             RandomRectangle([l1,w1], [l2,w2]).generate([N_i, 1])
 
+    initial_positions = []
+    if initial_type == 'object':
+        x0 = np.pi
+        x1 = np.pi
+        r = 0.5
+
+        index_e = []
+        index_i = []
+        for i in range(len(initial_ion_positions)):
+            x = initial_ion_positions[i]
+            if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
+                index_i.append(i)
+        for i in range(len(initial_electron_positions)):
+            x = initial_electron_positions[i]
+            if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
+                index_e.append(i)
+
+        initial_electron_positions = np.delete(initial_electron_positions, index_e, axis=0)
+        initial_ion_positions = np.delete(initial_ion_positions, index_i, axis=0)
+
+        len_e = len(index_e)
+        len_i = len(index_i)
+        while len_e > 0:
+            index_e = []
+            initial_electron_positions_sec = \
+            RandomRectangle([l1,w1], [l2,w2]).generate([len_e, 1])
+            for i in range(len(initial_electron_positions_sec)):
+                x = initial_electron_positions_sec[i]
+                if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
+                    index_e.append(i)
+            initial_electron_positions_sec = np.delete(initial_electron_positions_sec, index_e, axis=0)
+            initial_electron_positions = np.append(initial_electron_positions, initial_electron_positions_sec, axis=0)
+            len_e = len(index_e)
+        while len_i > 0:
+            index_i = []
+            initial_ion_positions_sec = \
+            RandomRectangle([l1,w1], [l2,w2]).generate([len_i, 1])
+            for i in range(len(initial_ion_positions_sec)):
+                x = initial_ion_positions_sec[i]
+                if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
+                    index_i.append(i)
+            initial_ion_positions_sec = np.delete(initial_ion_positions_sec, index_i, axis=0)
+            initial_ion_positions = np.append(initial_ion_positions, initial_ion_positions_sec, axis=0)
+            len_i = len(index_i)
+
+        initial_positions.extend(initial_electron_positions)
+
     n_ions = len(initial_ion_positions)
     n_electrons = len(initial_electron_positions)
 
-    oscillation_type = "2"
-    initial_positions = []
+    oscillation_type = "2" # Type 1 uses pynverse
     if initial_type == 'random':
         initial_positions.extend(initial_electron_positions)
     if initial_type == 'Langmuir_waves':
@@ -81,7 +127,6 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
         initial_positions.extend(initial_electron_positions)
     initial_positions.extend(initial_ion_positions)
     initial_positions = np.array(initial_positions)
-
     n_total_particles = len(initial_positions)
 
     if comm.Get_rank() == 0:
@@ -92,6 +137,17 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type):
     return initial_positions, n_total_particles, n_electrons, n_ions
 
 def random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i):
+    # Initial Gaussian distribution of velocity components
+    mu, sigma = 0., 1. # mean and standard deviation
+    initial_electron_velocities = \
+    np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_electrons),
+                                    (n_electrons, d))
+    initial_ion_velocities = \
+    np.reshape(alpha_i * np.random.normal(mu, sigma, d*n_ions),
+                                    (n_ions, d))
+    return initial_electron_velocities, initial_ion_velocities
+
+def object_velocities(n_electrons, n_ions, d, alpha_e, alpha_i):
     # Initial Gaussian distribution of velocity components
     mu, sigma = 0., 1. # mean and standard deviation
     initial_electron_velocities = \
@@ -116,6 +172,9 @@ def intialize_particle_velocities(n_electrons, n_ions, L,
     if initial_type == 'Langmuir_waves':
         initial_electron_velocities, initial_ion_velocities = \
         Langmuir_waves_velocities(d, n_electrons, n_ions)
+    if initial_type == 'object':
+        initial_electron_velocities, initial_ion_velocities = \
+        object_velocities(n_electrons, n_ions, d, alpha_e, alpha_i)
 
     initial_velocities = []
     initial_velocities.extend(initial_electron_velocities)
@@ -165,8 +224,8 @@ def initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
     return initial_positions, initial_velocities, properties, n_electrons
 
 if __name__ == '__main__':
-    N_e = 100          # Number of electrons
-    N_i = 100        # Number of ions
+    N_e = 20000          # Number of electrons
+    N_i = 20000        # Number of ions
     # Physical parameters
     rho_p = 8.*N_e        # Plasma density
     T_e = 1.        # Temperature - electrons
@@ -185,9 +244,9 @@ if __name__ == '__main__':
     w = rho_p/N_e
 
     l1 = 0.
-    l2 = 1.
+    l2 = 2.*np.pi
     w1 = 0.
-    w2 = 1.
+    w2 = 2.*np.pi
     h1 = 0.
     h2 = 1.
     l_2d = [l1, w1, l2, w2]
@@ -195,7 +254,44 @@ if __name__ == '__main__':
     initial_positions, initial_velocities, properties, n_electrons = \
     initial_conditions(N_e, N_i, l_2d, w, q_e, q_i, m_e, m_i,
                            alpha_e, alpha_i, random_domain = 'box',
-                           initial_type = 'Langmuir_waves')
+                           initial_type = 'object')
+    # print("positions: ", initial_positions)
+    # print("positions: ", initial_velocities)
+    # print("positions: ", properties)
+    fig = plt.figure()
+    import matplotlib.colors as colors
+    import matplotlib.cm as cmx
+
+    # theta goes from 0 to 2pi
+    theta = np.linspace(0, 2*np.pi, 100)
+
+    # the radius of the circle
+    r = np.sqrt(0.25)
+
+    # compute x1 and x2
+    x1 = np.pi + r*np.cos(theta)
+    x2 = np.pi + r*np.sin(theta)
+
+    ax = fig.gca()
+    ax.plot(x1, x2, c='k', linewidth=3)
+    ax.set_aspect(1)
+
+    skip = 1
+    xy_electrons = initial_positions[:n_electrons]
+    xy_ions = initial_positions[n_electrons:]
+    ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
+               label='ions',
+               marker='o',
+               c='r',
+               edgecolor='none')
+    ax.scatter(xy_electrons[::skip, 0], xy_electrons[::skip, 1],
+               label='electrons',
+               marker = 'o',
+               c='b',
+               edgecolor='none')
+    ax.legend(loc='best')
+    ax.axis([0, l2, 0, w2])
+
     fig = plt.figure()
     count, bins, ignored = plt.hist(initial_positions[:n_electrons,0], 600, normed=True)
 

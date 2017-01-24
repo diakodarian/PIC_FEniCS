@@ -10,7 +10,7 @@ from mpi4py import MPI as pyMPI
 comm = pyMPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def periodic_solver(f, V):
+def periodic_solver(f, V, bc=None):
 
     # Create Krylov solver
     solver = PETScKrylovSolver('cg')#, 'hypre_amg')#'gmres', 'ilu')
@@ -30,6 +30,10 @@ def periodic_solver(f, V):
     L = f*v*dx
 
     A, b = assemble_system(a, L)
+    if not bc == None:
+        bc.apply(A)
+        bc.apply(b)
+
     phi = Function(V)
 
     solver.set_operator(A)
@@ -329,6 +333,70 @@ def test_p_solver():
                 r3 = ln(E3[i]/E3[i-1])/ln(h[i]/h[i-1])
                 print("h =%10.2E E3 =%10.2E r3 =%.2f" %(h[i], E3[i], r3))
 
+def test_periodic_object_solver():
+    l1 = 0.
+    l2 = 2.*np.pi
+    w1 = 0.
+    w2 = 2.*np.pi
+
+    L = [l1, w1, l2, w2]
+    meshes = [Mesh("mesh/mesh3.xml")]#,Mesh("mesh4.xml"),Mesh("mesh5.xml")]
+    h = []
+    E = []
+    vol = l2*w2
+    for i in range(len(meshes)):
+        mesh = meshes[i]
+
+        # from pylab import show, triplot
+        # coords = mesh.coordinates()
+        # triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+        # show()
+        n_cells = mesh.num_cells()
+        a_averg = vol/n_cells
+        l_averg = np.sqrt(2.*a_averg)
+
+        facet_f = FacetFunction('size_t', mesh, 0)
+        DomainBoundary().mark(facet_f, 1)
+        square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
+        square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
+        square_boundary.mark(facet_f, 2)
+        #plot(facet_f, interactive=True)
+        #sys.exit()
+        V, VV, W = periodic_bcs(mesh, L)
+        class Source(Expression):
+            def eval(self, values, x):
+                values[0] = 2.*sin(x[0])*sin(x[1])
+
+        class RhoBCs(Expression):
+            def eval(self, values, x):
+                tol = 1E-8
+                if near((x[0]-l2/2.)*(x[0]-l2/2.)+(x[1]-w2/2.)*(x[1]-w2/2.), 0.25, tol):
+                    values[0] = sin(x[0])*sin(x[1])
+                else:
+                    values[0] = 0.
+
+        class Exact(Expression):
+            def eval(self, values, x):
+                values[0] = sin(x[0])*sin(x[1])
+
+        f = RhoBCs(degree=4)
+        rho = Source(degree=4)
+        phi_e = Exact(degree=4)
+
+        bc = DirichletBC(V, f, facet_f, 1)
+        #print bc.get_boundary_values()
+        phi = periodic_solver(rho, V, bc)
+
+        # E.append(errornorm(phi_e, phi, "l2"))
+        # h.append(l_averg)
+
+    # from math import log as ln
+    # for i in range(1, len(E)):
+    #     r = ln(E[i]/E[i-1])/ln(h[i]/h[i-1])
+    #     print("h =%10.2E E =%10.2E r =%.2f" %(h[i], E[i], r))
+
+    plot(phi, interactive=True)
+
 if __name__ == '__main__':
     import time
     from mesh_types import *
@@ -337,5 +405,6 @@ if __name__ == '__main__':
     #test_periodic_solver()
     #test_dirichlet_solver()
 
-    test_p_solver()
+    # test_p_solver()
     #test_D_solver()
+    test_periodic_object_solver()

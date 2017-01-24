@@ -1,5 +1,5 @@
-#from __future__ import print_function
-from LagrangianParticles_test import LagrangianParticles, RandomCircle, RandomRectangle, RandomBox, RandomSphere
+from __future__ import print_function
+from LagrangianParticlesObject import LagrangianParticles, RandomCircle, RandomRectangle, RandomBox, RandomSphere
 from FieldSolver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
 from particleDistribution import speed_distribution
@@ -28,32 +28,47 @@ h1 = 0.
 h2 = 1.
 
 L = [l1, w1, l2, w2]
-mesh = Mesh("mesh.xml")
+mesh = Mesh("mesh/mesh3.xml")
 
-from pylab import show, triplot
-coords = mesh.coordinates()
-triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
-show()
-#sys.exit()
+# from pylab import show, triplot
+# fig = plt.figure()
+# coords = mesh.coordinates()
+# # theta goes from 0 to 2pi
+# theta = np.linspace(0, 2*np.pi, 100)
+#
+# # the radius of the circle
+# r = np.sqrt(0.25)
+#
+# # compute x1 and x2
+# x1 = np.pi + r*np.cos(theta)
+# x2 = np.pi + r*np.sin(theta)
+#
+# ax = fig.gca()
+# ax.plot(x1, x2, c='k', linewidth=3)
+# ax.set_aspect(1)
+# ax.triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+# show()
+# sys.exit()
+
 facet_f = FacetFunction('size_t', mesh, 0)
 DomainBoundary().mark(facet_f, 1)
 square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
 square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
 square_boundary.mark(facet_f, 2)
 
-plot(facet_f, interactive=True)
-sys.exit()
+# plot(facet_f, interactive=True)
+# sys.exit()
 
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
 n_pr_super_particle = 8  # Number of particles per super particle
-tot_time = 25     # Total simulation time
+tot_time = 2     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
-N_e = n_pr_cell*n_cells       # Number of electrons
-N_i = n_pr_cell*n_cells       # Number of ions
-
+N_e = 1#n_pr_cell*n_cells       # Number of electrons
+N_i = 1#n_pr_cell*n_cells       # Number of ions
+# print "n_cells: ", n_cells
 
 # Physical parameters
 epsilon_0 = 1.       # Permittivity of vacuum
@@ -73,8 +88,6 @@ q_e = -e     # Electric charge - electron
 q_i = Z*e  # Electric charge - ions
 w = (l2*w2)/N_e #n_pr_super_particle
 
-
-
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
@@ -86,92 +99,33 @@ else:
     bc, V, VV, W = dirichlet_bcs(u_D, mesh)
 
 
-def periodic_solver(f, V, bc):
-
-    # Create Krylov solver
-    solver = PETScKrylovSolver('cg')#, 'hypre_amg')#'gmres', 'ilu')
-
-    solver.parameters["absolute_tolerance"] = 1e-14
-    solver.parameters["relative_tolerance"] = 1e-12
-    solver.parameters["maximum_iterations"] = 1000
-    #solver.parameters["monitor_convergence"] = True
-    solver.parameters["convergence_norm_type"] = "true"
-    #for item in solver.parameters.items(): print(item)
-
-    # Define variational problem
-    u = TrialFunction(V)
-    v = TestFunction(V)
-
-    a = inner(nabla_grad(u), nabla_grad(v))*dx
-    L = f*v*dx
-
-    A, b = assemble_system(a, L)
-
-    bc.apply(A)
-    bc.apply(b)
-
-    phi = Function(V)
-
-    solver.set_operator(A)
-
-    # Create vector that spans the null space and normalize
-    null_vec = Vector(phi.vector())
-    V.dofmap().set(null_vec, 1.0)
-    null_vec *= 1.0/null_vec.norm("l2")
-
-    # Create null space basis object and attach to PETSc matrix
-    null_space = VectorSpaceBasis([null_vec])
-    as_backend_type(A).set_nullspace(null_space)
-
-    # Orthogonalize RHS vector b with respect to the null space
-    null_space.orthogonalize(b);
-
-    # Solve
-    solver.solve(phi.vector(), b)
-    return phi
-
-class Source(Expression):
-    def eval(self, values, x):
-        values[0] = 2.*sin(x[0])*sin(x[1])
-        # if ((x[0]-3.14)*(x[0]-3.14)+(x[1]-3.14)*(x[1]-3.14) < 0.25):
-        #     values[0] = 0.
-        # else:
-        #     values[0] = 2.*sin(x[0])*sin(x[1])
-
-class RhoBCs(Expression):
-    def eval(self, values, x):
-        tol = 1E-5
-        if near((x[0]-np.pi)*(x[0]-np.pi)+(x[1]-np.pi)*(x[1]-np.pi), 0.25, tol):
-            values[0] = sin(x[0])*sin(x[1])
-        else:
-            values[0] = 0.
-
-class Exact(Expression):
-    def eval(self, values, x):
-        values[0] = sin(x[0])*sin(x[1])
-
-f = RhoBCs(degree=4)
-rho = Source(degree=4)
-phi_e = Exact(degree=4)
-
-cylinder = 'near((pow(x[0],2)+pow(x[1],2)), 0.25)' # on_boundary &&
-bc = DirichletBC(V, f, facet_f, 1)
-
-print bc.get_boundary_values()
-
-phi = periodic_solver(rho, V, bc)
-
-plot(phi, interactive=True)
-sys.exit()
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
-random_domain = 'box' # Options: 'sphere' or 'box'
-initial_type = 'Langmuir_waves' # 'Langmuir_waves' or 'random'
-initial_positions, initial_velocities, properties, n_electrons = \
-initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
-                       alpha_e, alpha_i, random_domain, initial_type)
+# random_domain = 'box' # Options: 'sphere' or 'box'
+# initial_type = 'object' # 'Langmuir_waves', 'object' or 'random'
+# initial_positions, initial_velocities, properties, n_electrons = \
+# initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
+#                        alpha_e, alpha_i, random_domain, initial_type)
 
+initial_positions = np.array([[2.60, 3.0],[2.60, 3.2]])
+initial_velocities = np.array([[2.60, 0.0],[2.60, .0]])
+properties = {}
+key = 'q'
+properties.setdefault(key, [])
+properties[key].append(w*q_e)
+properties[key].append(w*q_i)
+
+key = 'm'
+properties.setdefault(key, [])
+properties[key].append(w*m_e)
+properties[key].append(w*m_i)
+
+n_electrons = 1
+# print(initial_positions)
+# print(initial_velocities)
+# print(properties)
+# sys.exit()
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
@@ -212,13 +166,11 @@ for i, step in enumerate(range(tot_time)):
         print("t: ", step)
 
     f = Function(V)
-    #f = Constant("0.0")
-    #f = interpolate(f, V)
     rho = lp.charge_density(f)
-    #rho = interpolate(rho, V)
 
     if periodic_field_solver:
-        phi = periodic_solver(rho, V)
+        bc = DirichletBC(V, rho, facet_f, 1)
+        phi = periodic_solver(rho, V, bc)
         E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)
