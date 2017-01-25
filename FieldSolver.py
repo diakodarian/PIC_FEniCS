@@ -13,13 +13,14 @@ rank = comm.Get_rank()
 def periodic_solver(f, V, bc=None):
 
     # Create Krylov solver
-    solver = PETScKrylovSolver('cg')#, 'hypre_amg')#'gmres', 'ilu')
+    solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
 
     solver.parameters["absolute_tolerance"] = 1e-14
     solver.parameters["relative_tolerance"] = 1e-12
     solver.parameters["maximum_iterations"] = 1000
     #solver.parameters["monitor_convergence"] = True
     solver.parameters["convergence_norm_type"] = "true"
+    #solver.parameters['preconditioner']['structure'] = 'same'
     #for item in solver.parameters.items(): print(item)
 
     # Define variational problem
@@ -340,17 +341,17 @@ def test_periodic_object_solver():
     w2 = 2.*np.pi
 
     L = [l1, w1, l2, w2]
-    meshes = [Mesh("mesh/mesh3.xml")]#,Mesh("mesh4.xml"),Mesh("mesh5.xml")]
+    meshes = [Mesh("mesh/mesh.xml")]#,Mesh("mesh4.xml"),Mesh("mesh5.xml")]
     h = []
     E = []
     vol = l2*w2
     for i in range(len(meshes)):
         mesh = meshes[i]
 
-        # from pylab import show, triplot
-        # coords = mesh.coordinates()
-        # triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
-        # show()
+        from pylab import show, triplot
+        coords = mesh.coordinates()
+        triplot(coords[:,0], coords[:,1], triangles=mesh.cells())
+        show()
         n_cells = mesh.num_cells()
         a_averg = vol/n_cells
         l_averg = np.sqrt(2.*a_averg)

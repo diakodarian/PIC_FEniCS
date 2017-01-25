@@ -5,6 +5,12 @@ from mpi4py import MPI as pyMPI
 comm = pyMPI.COMM_WORLD
 rank = comm.Get_rank()
 
+def near(x, y, tol=1e-8):
+    if abs(x-y)<tol:
+        return True
+    else:
+        return False
+
 def periodic_bcs(mesh, l):
     # Sub domain for 2d Periodic boundary condition
     class PeriodicBoundary2D(SubDomain):
@@ -15,7 +21,7 @@ def periodic_bcs(mesh, l):
             self.Lx_right = L[2]
             self.Ly_left = L[1]
             self.Ly_right = L[3]
-            
+
         def inside(self, x, on_boundary):
             return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
                    (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or

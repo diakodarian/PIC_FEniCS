@@ -66,8 +66,8 @@ tot_time = 20     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
-N_e = 10#n_pr_cell*n_cells       # Number of electrons
-N_i = 10#n_pr_cell*n_cells       # Number of ions
+N_e = 20#n_pr_cell*n_cells       # Number of electrons
+N_i = 20#n_pr_cell*n_cells       # Number of ions
 # print "n_cells: ", n_cells
 
 # Physical parameters
@@ -161,6 +161,8 @@ save = True
 Ek = []
 Ep = []
 t = []
+object_charge = 0.0
+c = Constant(0.0)
 for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
         print("t: ", step)
@@ -169,19 +171,18 @@ for i, step in enumerate(range(tot_time)):
     rho = lp.charge_density(f)
 
     if periodic_field_solver:
-        bc = DirichletBC(V, rho, facet_f, 1)
+        bc = DirichletBC(V, c, facet_f, 1)
         phi = periodic_solver(rho, V, bc)
         E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, W)
 
-    info = lp.step(E, i, dt=dt)
+    info = lp.step(E, i, c(0), dt=dt)
     tot_n, n_proc = lp.total_number_of_particles()
     print("total_number_of_particles: ", tot_n)
-    print("on proc: ", n_proc)
     print("   ")
-
+    c.assign(info[3])
     Ek.append(info[2])
     energy = lp.potential_energy(phi)
     Ep.append(energy)
@@ -210,9 +211,9 @@ if comm.Get_rank() == 0:
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
     # lp.particle_distribution()
-    # plot(phi, interactive=True)
-    # plot(rho, interactive=True)
-    # plot(E, interactive=True)
+    plot(phi, interactive=True)
+    plot(rho, interactive=True)
+    plot(E, interactive=True)
     #
     # fig = plt.figure()
     # plt.plot(t,Ek, '-b')

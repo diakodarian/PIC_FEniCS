@@ -282,7 +282,7 @@ class LagrangianParticles:
             f.vector()[dof] = f_coefficients
         return f
 
-    def step(self, E, t_step, dt):
+    def step(self, E, t_step, object_charge, dt):
         'Move particles by leap frog'
         start = df.Timer('shift')
         e_k = 0.0
@@ -312,12 +312,12 @@ class LagrangianParticles:
         # Recompute the map
         stop_shift = start.stop()
         start = df.Timer('relocate')
-        info = self.relocate()
+        info = self.relocate(object_charge)
         stop_reloc = start.stop()
         # We return computation time per process
-        return (stop_shift, stop_reloc, e_k)
+        return (stop_shift, stop_reloc, e_k, info)
 
-    def relocate(self):
+    def relocate(self, object_charge):
         # Relocate particles on cells and processors
         p_map = self.particle_map
         # Map such that map[old_cell] = [(new_cell, particle_id), ...]
@@ -378,7 +378,7 @@ class LagrangianParticles:
                     self.particle0.recv(proc)
                     list_of_escaped_particles.append(copy.deepcopy(self.particle0))
                     list_of_escaped_particles_velocity.append(copy.deepcopy(self.particle0.velocity))
-
+        particles_inside_object = []
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
@@ -393,12 +393,16 @@ class LagrangianParticles:
             x1 = np.pi
             r = 0.5
             if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
-                list_of_escaped_particles.remove(p)
-
+                particles_inside_object.append(i)
+        for i in reversed(particles_inside_object):
+            p = list_of_escaped_particles[i]
+            object_charge += p.properties['q']
+            list_of_escaped_particles.remove(p)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
         self.add_particles(travelling_particles, travelling_particles_velocity)
+        return object_charge
 
     def total_number_of_particles(self):
         'Return number of particles in total and on process.'
