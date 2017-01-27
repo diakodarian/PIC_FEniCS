@@ -47,40 +47,39 @@ if d == 2:
         #mesh = Mesh("sandbox/mesh.xml")
 
 # Simulation parameters:
-n_pr_cell = 8        # Number of particels per cell
-n_pr_super_particle = 8  # Number of particles per super particle
-tot_time = 25     # Total simulation time
-dt = 0.251327       # time step
+n_pr_cell = 8             # Number of particels per cell
+n_pr_super_particle = 8   # Number of particles per super-particle
+tot_time = 25             # Total simulation time
+dt = 0.251327             # time step
 
-n_cells = mesh.num_cells() # Number of cells
+n_cells = mesh.num_cells()    # Number of cells
 N_e = n_pr_cell*n_cells       # Number of electrons
 N_i = n_pr_cell*n_cells       # Number of ions
 
 
 # Physical parameters
-epsilon_0 = 1.       # Permittivity of vacuum
-mu_0 = 1.            # Permeability of vacuum
+epsilon_0 = 1.        # Permittivity of vacuum
+mu_0 = 1.             # Permeability of vacuum
 T_e = 0.              # Temperature - electrons
 T_i = 0.              # Temperature - ions
 kB = 1.               # Boltzmann's constant
 e = 1.                # Elementary charge
-Z = 1                # Atomic number
+Z = 1                 # Atomic number
 m_e = 1.              # particle mass - electron
-m_i = 1836.15267389            # particle mass - ion
+m_i = 1836.15267389   # particle mass - ion
 
-alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
-alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
+alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor - electrons
+alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor - ions
 
-q_e = -e     # Electric charge - electron
-q_i = Z*e  # Electric charge - ions
-w = (l2*w2)/N_e #n_pr_super_particle
-
+q_e = -e        # Electric charge - electron
+q_i = Z*e       # Electric charge - ions
+w = (l2*w2)/N_e # Weight
 
 
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
-periodic_field_solver = True # Periodic or Dirichlet bcs
+periodic_field_solver = True # True if Periodic and False if Dirichlet bcs
 if periodic_field_solver:
     V, VV, W = periodic_bcs(mesh, L)
 else:
@@ -90,7 +89,7 @@ else:
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
-random_domain = 'box' # Options: 'sphere' or 'box'
+random_domain = 'box'           # Options: 'sphere' or 'box'
 initial_type = 'Langmuir_waves' # 'Langmuir_waves' or 'random'
 initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
@@ -101,6 +100,19 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
 #-------------------------------------------------------------------------------
 lp = LagrangianParticles(VV)
 lp.add_particles(initial_positions, initial_velocities, properties)
+
+#-------------------------------------------------------------------------------
+#         Create Krylov solver
+#-------------------------------------------------------------------------------
+solver = PETScKrylovSolver('gmres', 'hypre_amg')
+
+solver.parameters["absolute_tolerance"] = 1e-14
+solver.parameters["relative_tolerance"] = 1e-12
+solver.parameters["maximum_iterations"] = 1000
+#solver.parameters["monitor_convergence"] = True
+solver.parameters["convergence_norm_type"] = "true"
+#for item in solver.parameters.items(): print(item)
+solver.set_reuse_preconditioner(True)
 
 #-------------------------------------------------------------------------------
 #             Plot and write to file
@@ -142,7 +154,7 @@ for i, step in enumerate(range(tot_time)):
     #rho = interpolate(rho, V)
 
     if periodic_field_solver:
-        phi = periodic_solver(rho, V)
+        phi = periodic_solver(rho, V, solver)
         E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)

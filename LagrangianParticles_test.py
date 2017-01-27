@@ -495,6 +495,11 @@ class LagrangianParticles:
             cnorm = colors.Normalize(vmin=0, vmax=self.num_processes)
             scalarMap = cmx.ScalarMappable(norm=cnorm, cmap=cmap)
 
+            lx_min = self.mesh.coordinates()[:,0].min()
+            lx_max = self.mesh.coordinates()[:,0].max()
+            ly_min = self.mesh.coordinates()[:,1].min()
+            ly_max = self.mesh.coordinates()[:,1].max()
+
             for proc in received_ions:
                 # Plot only if there is something to plot
                 ions = received_ions[proc]
@@ -513,7 +518,7 @@ class LagrangianParticles:
                                c='b',
                                edgecolor='none')
             ax.legend(loc='best')
-            ax.axis([0, 1, 0, 1])
+            ax.axis([lx_min, lx_max, ly_min, ly_max])
 
     def particle_distribution(self):
         # Psarticle distribution

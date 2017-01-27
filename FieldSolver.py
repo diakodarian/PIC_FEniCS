@@ -10,18 +10,7 @@ from mpi4py import MPI as pyMPI
 comm = pyMPI.COMM_WORLD
 rank = comm.Get_rank()
 
-def periodic_solver(f, V, bc=None):
-
-    # Create Krylov solver
-    solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
-
-    solver.parameters["absolute_tolerance"] = 1e-14
-    solver.parameters["relative_tolerance"] = 1e-12
-    solver.parameters["maximum_iterations"] = 1000
-    #solver.parameters["monitor_convergence"] = True
-    solver.parameters["convergence_norm_type"] = "true"
-    #solver.parameters['preconditioner']['structure'] = 'same'
-    #for item in solver.parameters.items(): print(item)
+def periodic_solver(f, V, solver, bc=None):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -81,6 +70,19 @@ def E_field(phi, VV):
     return e_field
 
 def test_periodic_solver():
+
+    solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
+
+    solver.parameters["absolute_tolerance"] = 1e-14
+    solver.parameters["relative_tolerance"] = 1e-12
+    solver.parameters["maximum_iterations"] = 1000
+    #solver.parameters["monitor_convergence"] = True
+    solver.parameters["convergence_norm_type"] = "true"
+    #solver.parameters['preconditioner']['reuse'] = True
+    #solver.parameters['preconditioner']['structure'] = 'same'
+    #for item in solver.parameters.items(): print(item)
+    solver.set_reuse_preconditioner(True)
+
     divs = [[50, 50], [10, 10, 10]]
     l_unit = [[0., 0., 1., 1.], [0., 0., 0., 1., 1., 1.]]
     l_hyper = [[-1., -1, 1., 1.],[-1., -1., -1., 1., 1., 1.]]
@@ -122,7 +124,7 @@ def test_periodic_solver():
 
             f = Source(degree=2)
             phi_e = Exact(degree=2)
-            phi = periodic_solver(f, V)
+            phi = periodic_solver(f, V, solver)
 
             #error_l2 = errornorm(phi_e, phi, "L2")
             #print("l2 norm: ", error_l2)
@@ -254,6 +256,19 @@ def test_D_solver():
 
 
 def test_p_solver():
+
+    solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
+
+    solver.parameters["absolute_tolerance"] = 1e-14
+    solver.parameters["relative_tolerance"] = 1e-12
+    solver.parameters["maximum_iterations"] = 1000
+    #solver.parameters["monitor_convergence"] = True
+    solver.parameters["convergence_norm_type"] = "true"
+    #solver.parameters['preconditioner']['reuse'] = True
+    #solver.parameters['preconditioner']['structure'] = 'same'
+    #for item in solver.parameters.items(): print(item)
+    solver.set_reuse_preconditioner(True)
+
     divs = [[3,3], [5,5], [10,10], [11,11], [12,12], [13,13], [15,15]]
     l_unit = [[0., 0., 1., 1.]]
     l_hyper = [[-1., -1, 1., 1.]]
@@ -303,7 +318,7 @@ def test_p_solver():
             E_ex = Exact_Ex(degree=4)
             E_ey = Exact_Ey(degree=4)
 
-            phi = periodic_solver(f, V)
+            phi = periodic_solver(f, V, solver)
             E = E_field(phi, V_g)
             E_x, E_y = E.split(deepcopy=True)
 
@@ -335,6 +350,19 @@ def test_p_solver():
                 print("h =%10.2E E3 =%10.2E r3 =%.2f" %(h[i], E3[i], r3))
 
 def test_periodic_object_solver():
+
+    solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
+
+    solver.parameters["absolute_tolerance"] = 1e-14
+    solver.parameters["relative_tolerance"] = 1e-12
+    solver.parameters["maximum_iterations"] = 1000
+    #solver.parameters["monitor_convergence"] = True
+    solver.parameters["convergence_norm_type"] = "true"
+    #solver.parameters['preconditioner']['reuse'] = True
+    #solver.parameters['preconditioner']['structure'] = 'same'
+    #for item in solver.parameters.items(): print(item)
+    solver.set_reuse_preconditioner(True)
+
     l1 = 0.
     l2 = 2.*np.pi
     w1 = 0.
@@ -386,7 +414,7 @@ def test_periodic_object_solver():
 
         bc = DirichletBC(V, f, facet_f, 1)
         #print bc.get_boundary_values()
-        phi = periodic_solver(rho, V, bc)
+        phi = periodic_solver(rho, V, solver, bc)
 
         # E.append(errornorm(phi_e, phi, "l2"))
         # h.append(l_averg)
