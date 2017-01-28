@@ -185,9 +185,9 @@ def Langmuir_waves_perturbations(n_electrons, l1,l2):
 
 def Langmuir_waves_positions(initial_electron_positions, n_electrons,
                              l1, l2):
-    oscillation_type = "2"
+    oscillation_type = "2" # type 1 uses pynverse
     if oscillation_type == "1":
-        x_comp = Langmuir_waves_positions(n_electrons, l1,l2)
+        x_comp = Langmuir_waves_perturbations(n_electrons, l1,l2)
         initial_electron_positions[:,0] = x_comp
     if oscillation_type == "2":
         A = 0.1
