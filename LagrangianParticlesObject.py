@@ -112,7 +112,7 @@ class CellParticleMap(dict):
 
 class LagrangianParticles:
     'Particles moved by the velocity field in V.'
-    def __init__(self, V):
+    def __init__(self, V, object_type, object_info):
         self.__debug = __DEBUG__
 
         self.V = V
@@ -120,6 +120,9 @@ class LagrangianParticles:
         self.mesh.init(2, 2)  # Cell-cell connectivity for neighbors of cell
         self.tree = self.mesh.bounding_box_tree()  # Tree for isection comput.
 
+        # The object
+        self.object_type = object_type
+        self.object_info = object_info
         # Allocate some variables used to look up the velocity
         # Velocity is computed as U_i*basis_i where i is the dimension of
         # element function space, U are coefficients and basis_i are element
@@ -382,6 +385,7 @@ class LagrangianParticles:
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
+            d = len(x)
             for dim in range(len(x)):
                 l_min = self.mesh.coordinates()[:,dim].min()
                 l_max = self.mesh.coordinates()[:,dim].max()
@@ -389,11 +393,25 @@ class LagrangianParticles:
                 if x[dim] < l_min or x[dim] > l_max:
                     x[dim] = (x[dim]+abs(l_min))%l + l_min
             # If the particle hits the object remove it
-            x0 = np.pi
-            x1 = np.pi
-            r = 0.5
-            if (x[0]-x0)**2 + (x[1]-x1)**2 < r**2:
-                particles_inside_object.append(i)
+            if self.object_type == 'spherical_object':
+                if d == 2:
+                    s0 = [self.object_info[0], self.object_info[1]]
+                    r0 = self.object_info[2]
+                if d == 3:
+                    s0 = [self.object_info[0], self.object_info[1], self.object_info[2]]
+                    r0 = self.object_info[3]
+                if np.dot(x-s0, x-s0) < r0**2:
+                    particles_inside_object.append(i)
+            if self.object_type == 'cylindrical_object':
+                s0 = [self.object_info[0], self.object_info[1]]
+                r0 = self.object_info[2]
+                h0 = self.object_info[3]
+                h2 = self.mesh.coordinates()[:,2].max()
+                z0 = (h2-h0)/2.      # Bottom point of cylinder
+                z1 = (h2+h0)/2.      # Top point of cylinder
+                if (x[2] > z0 and x[2] < z1 and np.dot(x[:2]-s0, x[:2]-s0) < r0**2):
+                    particles_inside_object.append(i)
+
         for i in reversed(particles_inside_object):
             p = list_of_escaped_particles[i]
             object_charge += p.properties['q']

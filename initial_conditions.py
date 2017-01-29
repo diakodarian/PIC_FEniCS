@@ -113,12 +113,23 @@ def cylindrical_object(L, initial_ion_positions, initial_electron_positions,
 
     return initial_electron_positions, initial_ion_positions
 
-def spherical_object(d, initial_ion_positions, initial_electron_positions,
+def spherical_object(L, initial_ion_positions, initial_electron_positions,
                     object_info):
+    d = int(len(L)/2)
     if d == 2:
+        l1 = L[0]
+        w1 = L[1]
+        l2 = L[2]
+        w2 = L[3]
         s0 = [object_info[0], object_info[1]]
         r0 = object_info[2]
     if d == 3:
+        l1 = L[0]
+        w1 = L[1]
+        h1 = L[2]
+        l2 = L[3]
+        w2 = L[4]
+        h2 = L[5]
         s0 = [object_info[0], object_info[1], object_info[2]]
         r0 = object_info[3]
     index_e = []
@@ -221,7 +232,7 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
 
     if initial_type == 'spherical_object':
         initial_electron_positions, initial_ion_positions = \
-        spherical_object(d, initial_ion_positions, initial_electron_positions,\
+        spherical_object(L, initial_ion_positions, initial_electron_positions,\
                         object_info)
         initial_positions.extend(initial_electron_positions)
 

@@ -27,9 +27,9 @@ w2 = 2.*np.pi
 h1 = 0.
 h2 = 1.
 
-L = [l1, w1, l2, w2]
-mesh = Mesh("mesh/mesh3.xml")
 
+mesh = Mesh("mesh/circle.xml")
+# mesh.init()
 # from pylab import show, triplot
 # fig = plt.figure()
 # coords = mesh.coordinates()
@@ -52,12 +52,86 @@ mesh = Mesh("mesh/mesh3.xml")
 
 facet_f = FacetFunction('size_t', mesh, 0)
 DomainBoundary().mark(facet_f, 1)
-square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
-square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
-square_boundary.mark(facet_f, 2)
+if d == 2:
+    square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
+    square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
+    square_boundary.mark(facet_f, 2)
+if d == 3:
+    box_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol) || near(x[2]*(x[2]-h2), 0, tol)'
+    box_boundary = CompiledSubDomain(box_boundary, l2=l2, w2=w2, h2 = h2, tol=1E-8)
+    box_boundary.mark(facet_f, 2)
 
-# plot(facet_f, interactive=True)
+# c = Cell(mesh, 1)
+#
+# itr_facet = SubsetIterator(facet_f, 1)
+#
+# facet_info = []
+# facets_info = []
+# for f in itr_facet:
+#     facets_info.append(f)
+#     facet_info.append(f.index())
+#     print(c.normal(f.index(),0))
+#     # print((f.midpoint().x()-np.pi)**2 + (f.midpoint().y()-np.pi)**2)
+#     # for v in vertices(f):
+#         # print("vertex: ", v.index())
+#         # print(v.point().x(), v.point().y())
+# # print("***************************************")
+# # print(facet_info)
+# # print(facets_info[0])
+# # print("***************************************")
+# #
+# # for i in range(len(facets_info)):
+# #     print(i, "   ", facets_info[i])
+# #     print(facets_info[i])#, "  ", facets[facet_info[i]])
+# # from IPython import embed; embed()
 # sys.exit()
+#
+# # Mark boundary adjacent cells
+# boundary_adjacent_cells = [myCell for myCell in cells(mesh)
+#                            if any([((myFacet.midpoint().x()-np.pi)**2 + \
+#                             (myFacet.midpoint().y()-np.pi)**2 < 0.25) \
+#                             for myFacet in facets(myCell)])]
+#
+# cell_domains = CellFunction('size_t', mesh)
+# cell_domains.set_all(1)
+# for myCell in boundary_adjacent_cells:
+#     cell_domains[myCell] = 0
+#
+# # Plot cell_domains
+# # plot(cell_domains, interactive=True)
+#
+# itr_cells = SubsetIterator(cell_domains, 0)
+# for c in itr_cells:
+#     vert = c.entities(1)[2]
+#     #normals = cell(c).get_vertex_coordinates()
+#     #print(normals)
+# # from IPython import embed; embed()
+# sys.exit()
+# -------------------------------Experiments------------------------------------
+
+#-------------------------------------------------------------------------------
+#                       Create object
+#-------------------------------------------------------------------------------
+object_type = 'spherical_object' # Options spherical_ or cylindrical_
+if object_type == 'spherical_object':
+    x0 = np.pi
+    y0 = np.pi
+    z0 = np.pi
+    r0 = 0.5
+    if d == 2:
+        object_info = [x0, y0, r0]
+        L = [l1, w1, l2, w2]
+    elif d == 3:
+        object_info = [x0, y0, z0, r0]
+        L = [l1, w1, h1, l2, w2, h2]
+if object_type == 'cylindrical_object':
+    x0 = np.pi
+    y0 = np.pi
+    r0 = 0.5
+    h0 = 1.0
+
+    object_info = [x0, y0, r0, h0]
+    L = [l1, w1, h1, l2, w2, h2]
 
 # Simulation parameters:
 n_pr_cell = 8        # Number of particels per cell
@@ -66,8 +140,8 @@ tot_time = 20     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
-N_e = 20#n_pr_cell*n_cells       # Number of electrons
-N_i = 20#n_pr_cell*n_cells       # Number of ions
+N_e = 30#n_pr_cell*n_cells       # Number of electrons
+N_i = 30#n_pr_cell*n_cells       # Number of ions
 # print "n_cells: ", n_cells
 
 # Physical parameters
@@ -103,10 +177,10 @@ else:
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
 random_domain = 'box' # Options: 'sphere' or 'box'
-initial_type = 'object' # 'Langmuir_waves', 'object' or 'random'
+initial_type = object_type
 initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
-                       alpha_e, alpha_i, random_domain, initial_type)
+                       alpha_e, alpha_i, object_info, random_domain, initial_type)
 
 # initial_positions = np.array([[2.50, 3.0],[2.50, 3.2]])
 # initial_velocities = np.array([[1., 0.0],[0.3, .0]])
@@ -126,10 +200,25 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
 # print(initial_velocities)
 # print(properties)
 # sys.exit()
+
+#-------------------------------------------------------------------------------
+#         Create Krylov solver
+#-------------------------------------------------------------------------------
+solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
+
+solver.parameters["absolute_tolerance"] = 1e-14
+solver.parameters["relative_tolerance"] = 1e-12
+solver.parameters["maximum_iterations"] = 1000
+#solver.parameters["monitor_convergence"] = True
+solver.parameters["convergence_norm_type"] = "true"
+#solver.parameters['preconditioner']['reuse'] = True
+#solver.parameters['preconditioner']['structure'] = 'same'
+#for item in solver.parameters.items(): print(item)
+solver.set_reuse_preconditioner(True)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
-lp = LagrangianParticles(VV)
+lp = LagrangianParticles(VV, object_type, object_info)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
 #-------------------------------------------------------------------------------
@@ -158,6 +247,25 @@ if comm.Get_rank() == 0:
 plt.ion()
 save = True
 
+# def extract_values(u, cell_function, subdomain_id, V):
+#   dofmap = V.dofmap()
+#   mesh = V.mesh()
+#   for cell in cells(mesh):
+#     # Preserve only the dofs in cells marked as subdomain_id
+#     if cell_function[cell.index()] != subdomain_id:
+#       dofs = dofmap.cell_dofs(cell.index())
+#       for dof in dofs:
+#         u.vector()[dof] = 0.0
+#   return u
+#
+# u = interpolate(Expression("sin(x[0]) + cos(x[1])", degree=2), V)
+# u_left  = Function(V); u_left.vector()[:]  = u.vector()
+# u_left  = extract_values(u_left, facet_f, 1, V)
+# ff = np.where(u_left.vector().array()!=0)[0]
+# print(ff)
+# plot(u, mesh, interactive=True)
+# sys.exit()
+
 Ek = []
 Ep = []
 t = []
@@ -172,7 +280,9 @@ for i, step in enumerate(range(tot_time)):
 
     if periodic_field_solver:
         bc = DirichletBC(V, c, facet_f, 1)
-        phi = periodic_solver(rho, V, bc)
+        boundary_values = bc.get_boundary_values()
+        print("boundary_values: ", boundary_values)
+        phi = periodic_solver(rho, V, solver, bc)
         E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)
@@ -214,6 +324,7 @@ if comm.Get_rank() == 0:
     plot(phi, interactive=True)
     plot(rho, interactive=True)
     plot(E, interactive=True)
+
     #
     # fig = plt.figure()
     # plt.plot(t,Ek, '-b')
