@@ -93,7 +93,7 @@ random_domain = 'box'           # Options: 'sphere' or 'box'
 initial_type = 'Langmuir_waves' # 'Langmuir_waves' or 'random'
 initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
-                       alpha_e, alpha_i, random_domain, initial_type)
+                       alpha_e, alpha_i, None, random_domain, initial_type)
 
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
@@ -184,7 +184,7 @@ if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    to_file = open('data/energies_nonuniform_mesh.txt', 'w')
+    to_file = open('data/energies.txt', 'w')
     for i,j,k, l in zip(t, Ek, Ep, Et):
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()

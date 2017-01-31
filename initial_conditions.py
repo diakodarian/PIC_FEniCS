@@ -248,7 +248,7 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
     if initial_type == 'Langmuir_waves':
         initial_electron_positions = \
         Langmuir_waves_positions(initial_electron_positions, n_electrons,\
-                                l1, l2)
+                                L[0], L[2])
         initial_positions.extend(initial_electron_positions)
 
     initial_positions.extend(initial_ion_positions)
