@@ -9,7 +9,7 @@ ek = []
 ep = []
 et = []
 
-f = open('energies_nonuniform_mesh.txt', 'r').readlines()
+f = open('data/energies.txt', 'r').readlines()
 N = len(f)-1
 for i in range(0,N):
     w = f[i].split()
