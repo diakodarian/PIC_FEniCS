@@ -1,4 +1,4 @@
-sizeo = 1.;
+sizeo = .6;
 a = 2*Pi;
 Point(1) = {0, 0, 0, sizeo};
 Point(2) = {a, 0, 0, sizeo};
@@ -6,7 +6,7 @@ Point(3) = {a, a, 0, sizeo};
 Point(4) = {0, a, 0, sizeo};
 
 r = 0.5;
-sizei = 1.0;
+sizei = 0.3;
 Point(5) = {a/2, a/2, 0, 1};
 Point(6) = {a/2+r, a/2, 0, sizei};
 Point(7) = {a/2-r, a/2, 0, sizei};

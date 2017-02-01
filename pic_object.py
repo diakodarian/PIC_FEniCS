@@ -17,7 +17,7 @@ comm = pyMPI.COMM_WORLD
 #-------------------------------------------------------------------------------
 #                           Create the mesh
 #-------------------------------------------------------------------------------
-d = 2              # Space dimension
+d = 3              # Space dimension
 M = [32,32,30]     # Number of grid points
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
 l1 = 0.
@@ -25,10 +25,14 @@ l2 = 2.*np.pi
 w1 = 0.
 w2 = 2.*np.pi
 h1 = 0.
-h2 = 1.
+h2 = 2.*np.pi
 
+if d == 2:
+    mesh = Mesh("mesh/circle.xml")
+elif d == 3:
+    mesh = Mesh('mesh/cylinder.xml')#('mesh/sphere.xml')
 
-mesh = Mesh("mesh/circle.xml")
+File("mesh.pvd") << mesh
 # mesh.init()
 # from pylab import show, triplot
 # fig = plt.figure()
@@ -61,6 +65,9 @@ if d == 3:
     box_boundary = CompiledSubDomain(box_boundary, l2=l2, w2=w2, h2 = h2, tol=1E-8)
     box_boundary.mark(facet_f, 2)
 
+
+plot(facet_f, interactive=True)
+sys.exit()
 # c = Cell(mesh, 1)
 #
 # itr_facet = SubsetIterator(facet_f, 1)
@@ -86,25 +93,32 @@ if d == 3:
 # # from IPython import embed; embed()
 # sys.exit()
 #
-# # Mark boundary adjacent cells
-# boundary_adjacent_cells = [myCell for myCell in cells(mesh)
-#                            if any([((myFacet.midpoint().x()-np.pi)**2 + \
-#                             (myFacet.midpoint().y()-np.pi)**2 < 0.25) \
-#                             for myFacet in facets(myCell)])]
-#
-# cell_domains = CellFunction('size_t', mesh)
-# cell_domains.set_all(1)
-# for myCell in boundary_adjacent_cells:
-#     cell_domains[myCell] = 0
-#
-# # Plot cell_domains
-# # plot(cell_domains, interactive=True)
+# Mark boundary adjacent cells
+if d == 2:
+    boundary_adjacent_cells = [myCell for myCell in cells(mesh)
+                               if any([((myFacet.midpoint().x()-np.pi)**2 + \
+                                (myFacet.midpoint().y()-np.pi)**2 < 0.25) \
+                                for myFacet in facets(myCell)])]
+elif d == 3:
+    boundary_adjacent_cells = [myCell for myCell in cells(mesh)
+                               if any([((myFacet.midpoint().x()-np.pi)**2 + \
+                                (myFacet.midpoint().y()-np.pi)**2 + \
+                                (myFacet.midpoint().z()-np.pi)**2 < 0.25) \
+                                for myFacet in facets(myCell)])]
+
+cell_domains = CellFunction('size_t', mesh)
+cell_domains.set_all(1)
+for myCell in boundary_adjacent_cells:
+    cell_domains[myCell] = 0
+
+# Plot cell_domains
+# plot(cell_domains, interactive=True)
 #
 # itr_cells = SubsetIterator(cell_domains, 0)
 # for c in itr_cells:
-#     vert = c.entities(1)[2]
-#     #normals = cell(c).get_vertex_coordinates()
-#     #print(normals)
+#     vert = c.entities(1)
+    #normals = cell(c).get_vertex_coordinates()
+    #print(vert)
 # # from IPython import embed; embed()
 # sys.exit()
 # -------------------------------Experiments------------------------------------
@@ -140,8 +154,8 @@ tot_time = 20     # Total simulation time
 dt = 0.251327       # time step
 
 n_cells = mesh.num_cells() # Number of cells
-N_e = 30#n_pr_cell*n_cells       # Number of electrons
-N_i = 30#n_pr_cell*n_cells       # Number of ions
+N_e = n_pr_cell*n_cells       # Number of electrons
+N_i = n_pr_cell*n_cells       # Number of ions
 # print "n_cells: ", n_cells
 
 # Physical parameters
@@ -162,6 +176,8 @@ q_e = -e     # Electric charge - electron
 q_i = Z*e  # Electric charge - ions
 w = (l2*w2)/N_e #n_pr_super_particle
 
+capacitance_sphere = 4.*np.pi*epsilon_0*r0
+print("capacitance_sphere: ", capacitance_sphere)
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
@@ -215,12 +231,79 @@ solver.parameters["convergence_norm_type"] = "true"
 #solver.parameters['preconditioner']['structure'] = 'same'
 #for item in solver.parameters.items(): print(item)
 solver.set_reuse_preconditioner(True)
+
+
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
 lp = LagrangianParticles(VV, object_type, object_info)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
+
+# for vertex in vertices(mesh):
+#     print(vertex.index(), "  ", vertex.x(0))
+# sys.exit()
+
+#-------------------------------------------------------------------------------
+#             The capacitance of the object
+#-------------------------------------------------------------------------------
+c = Constant(1.0)
+f = Function(V)
+rho = f
+bc = DirichletBC(V, c, facet_f, 1)
+#boundary_values = bc.get_boundary_values()
+#print("boundary_values: ", boundary_values)
+phi = periodic_solver(rho, V, solver, bc)
+E = E_field(phi, W)
+
+ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
+n = FacetNormal(mesh)
+capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
+
+print("capacitance_sphere_numerical: ", capacitance_sphere_numerical)
+
+#
+# File("rho.pvd") << rho
+# File("phi.pvd") << phi
+# File("E.pvd") << E
+#
+# sys.exit()
+# #*******************************************************************************
+# v2d = vertex_to_dof_map(E.function_space())
+# v2d2 = vertex_to_dof_map(phi.function_space())
+#
+# facet_vertex = boundary_values.keys()
+# dof = v2d[facet_vertex]
+# print("boundary_values: ", facet_vertex)
+# print("facet_dof: ", v2d[facet_vertex])
+# print("E: ", E.vector()[dof])
+# print("size: ", E.vector().size(), "  ", len(v2d),"  ", len(v2d2))
+#
+# #sys.exit()
+#
+# itr_facets = SubsetIterator(facet_f, 1)
+# for c in itr_facets:
+#     # from IPython import embed; embed()
+#     vert = c.entities(0)
+#     print("vert: ", vert)
+#     #dof = v2d[vert]
+#     #print("dof: ", dof)
+#     #print(E.vector()[dof])
+#
+# sys.exit()
+# itr_cells = SubsetIterator(cell_domains, 0)
+# for c in itr_cells:
+#     # from IPython import embed; embed()
+#     vert = c.entities(0)
+#     print("vert: ", vert)
+#     dof = v2d[vert]
+#     print("dof: ", dof)
+#     print(E.vector()[dof])
+# # print("E: ", E.vector().array())#[facet_f==1])
+# plot(rho, interactive=True)
+# plot(phi, interactive=True)
+# plot(E, interactive=True)
+# sys.exit()
 #-------------------------------------------------------------------------------
 #             Plot and write to file
 #-------------------------------------------------------------------------------

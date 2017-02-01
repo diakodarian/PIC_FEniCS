@@ -67,14 +67,13 @@ Line Loop(38) = {16, -20, -19, 15};
 Ruled Surface(38) = {38};
 
 
-Physical Surface(39) = {38, 37, 36, 35};
-Physical Volume(1) = {39};
+Surface Loop(41) = {26, 30, 24, 28, 32, 22};
 
-Physical Surface(40) = {22, 28, 32, 24, 30, 26};
-Physical Volume(2) = {40};
+Surface Loop(42) = {36, 38, 37, 35};
 
-Periodic Surface {22} = {24};
-Periodic Surface {26} = {32};
-Periodic Surface {28} = {30};
+Volume(43) = {41, 42};
+Physical Volume(1) = {43};
 
-
+Periodic Surface 22 {9, -2, -7, 8} = 24 {11, 4, 5, -12};
+Periodic Surface 26 {6, 8, 10, 12} = 32 {1, 2, 3, 4};
+Periodic Surface 28 {10, 11, -3, -9} = 30 {-6, -5, 1, -7};

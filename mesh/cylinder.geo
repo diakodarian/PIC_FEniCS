@@ -68,7 +68,7 @@ Line Loop(39) = {5, -12, 11, 4};
 Plane Surface(40) = {39};
 Line Loop(41) = {11, -3, -9, 10};
 Plane Surface(42) = {41};
-Line Loop(43) = {-7, 8, 9, -2}; 
+Line Loop(43) = {-7, 8, 9, -2};
 Plane Surface(44) = {43};
 Line Loop(45) = {12, 6, 8, 10};
 Plane Surface(46) = {45};
@@ -76,13 +76,13 @@ Line Loop(47) = {-5, 1, -7, -6};
 Plane Surface(48) = {47};
 
 
-Physical Surface(49) = {42, 44, 48, 40, 38, 46};
-Physical Volume(1) = {49};
+Surface Loop(49) = {42, 44, 48, 40, 38, 46};
 
-Physical Surface(50) = {26, 32, 30, 36, 34, 28};
-Physical Volume(2) = {50};
+Surface Loop(50) = {26, 32, 30, 36, 34, 28};
 
-Periodic Surface {38} = {46};
-Periodic Surface {40} = {44};
-Periodic Surface {42} = {48};
+Volume(51) = {49, 50};
+Physical Volume(1) = {51};
 
+Periodic Surface 38 {4, 1, 2, 3} = 46 {12, 6, 8, 10};
+Periodic Surface 40 {5, -12, 11, 4} = 44 {-7, 8, 9, -2};
+Periodic Surface 42 {11, -3, -9, 10} = 48 {-5, 1, -7, -6};
