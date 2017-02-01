@@ -265,7 +265,7 @@ if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    to_file = open('data/energies_nonuniform_mesh.txt', 'w')
+    to_file = open('data/energies.txt', 'w')
     for i,j,k, l in zip(t, Ek, Ep, Et):
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
