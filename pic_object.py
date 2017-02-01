@@ -74,6 +74,17 @@ if d == 3:
     box_boundary.mark(facet_f, 2)
 
 #-------------------------------------------------------------------------------
+#                       Index of object vertices
+#-------------------------------------------------------------------------------
+itr_facet = SubsetIterator(facet_f, 1)
+object_vertices = set()
+for f in itr_facet:
+    for v in vertices(f):
+        object_vertices.add(v.index())
+
+object_vertices = list(object_vertices)
+
+#-------------------------------------------------------------------------------
 #                       Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
 if d == 2:
@@ -171,9 +182,8 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #-------------------------------------------------------------------------------
 c = Constant(1.0)
 f = Function(V)
-rho = f
 bc = DirichletBC(V, c, facet_f, 1)
-phi = periodic_solver(rho, V, solver, bc)
+phi = periodic_solver(f, V, solver, bc)
 E = E_field(phi, W)
 
 ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
@@ -211,7 +221,7 @@ save = True
 Ek = []              # List to store kinetic energy
 Ep = []              # List to store potential energy
 t = []               # List to store time
-object_charge = 0.0  # Initial object charge
+q_object = 0.0       # Initial object charge
 c = Constant(0.0)    # Initial object charge
 
 #-------------------------------------------------------------------------------
@@ -222,23 +232,29 @@ for i, step in enumerate(range(tot_time)):
         print("t: ", step)
 
     f = Function(V)
-    rho = lp.charge_density(f)
+    rho, q_rho = lp.charge_density(f, object_vertices)
+
+    # Objetc boundary condition
+    phi_object = (q_object-q_rho)/capacitance_sphere_numerical
+    c.assign(phi_object)
 
     if periodic_field_solver:
         bc = DirichletBC(V, c, facet_f, 1)
         boundary_values = bc.get_boundary_values()
-        print("boundary_values: ", boundary_values)
+        # print("boundary_values: ", boundary_values)
         phi = periodic_solver(rho, V, solver, bc)
         E = E_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, W)
 
-    info = lp.step(E, i, c(0), dt=dt)
+    info = lp.step(E, i, q_object, dt=dt)
+    q_object = info[3]
+
     tot_n, n_proc = lp.total_number_of_particles()
     print("total_number_of_particles: ", tot_n)
     print("   ")
-    c.assign(info[3])
+
     Ek.append(info[2])
     energy = lp.potential_energy(phi)
     Ep.append(energy)

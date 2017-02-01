@@ -260,7 +260,7 @@ class LagrangianParticles:
                 e_k += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
         return e_k
 
-    def charge_density(self, f):
+    def charge_density(self, f, object_vertices = None):
         'Particle charge weigthed at nodes'
         v2d = df.vertex_to_dof_map(f.function_space())
 
@@ -272,6 +272,8 @@ class LagrangianParticles:
                        cwp,
                        cwp.get_vertex_coordinates(),
                        cwp)
+            c = cwp.entities(0)
+            dof = v2d[c]
             for particle in cwp.particles:
                 x = particle.position
                 # Compute velocity at position x
@@ -279,11 +281,18 @@ class LagrangianParticles:
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
-                c = cwp.entities(0)
-                dof = v2d[c]
                 f_coefficients += particle.properties['q']*f_basis_matrix/cwp.volume()
             f.vector()[dof] = f_coefficients
-        return f
+
+        q_rho = 0.0
+        for cwp in self.particle_map.itervalues():
+            c = cwp.entities(0)
+            for i in range(len(c)):
+                for j in range(len(object_vertices)):
+                    if c[i] == object_vertices[j]:
+                        dof = v2d[c[i]]
+                        q_rho += f.vector()[dof][0]*cwp.volume()
+        return f, q_rho
 
     def step(self, E, t_step, object_charge, dt):
         'Move particles by leap frog'
