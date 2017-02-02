@@ -295,21 +295,7 @@ class LagrangianParticles:
         return f, q_rho
 
     def current_density(self, J_e, J_i):
-        'Particle charge weigthed at nodes'
-        v2d_e = df.vertex_to_dof_map(J_e.function_space())
-        v2d_i = df.vertex_to_dof_map(J_i.function_space())
-
-        v_d = df.vertex_to_dof_map(J_i.function_space())
-        d_v = df.dof_to_vertex_map(J_i.function_space())
-
-        # Coordinates of all dofs
-        dof_x = J_i.function_space().tabulate_dof_coordinates().reshape((-1, self.dim))
-        # di_dx[dof_index] = coordinates of dof
-        di_dx = dof_x.tolist()
-        # Coordinates of all vertices
-        vertex_x = self.mesh.coordinates().reshape((-1, self.dim))
-        # vi_vx[vertex_index] = coordinates of index
-        vi_vx = vertex_x.tolist()
+        'Particle charge density times velocity weigthed at nodes'
 
         for cwp in self.particle_map.itervalues():
             J_e_coefficients = np.zeros(J_e.function_space().dolfin_element().space_dimension())
@@ -328,13 +314,7 @@ class LagrangianParticles:
                        cwp)
             c = cwp.entities(0)
             cell_dof = J_i.function_space().dofmap().cell_dofs(cwp.index())
-            # dofs = []
-            # for j in range(len(c)):
-            #     for i in range(len(v_d)):
-            #         if vi_vx[c[j]] == di_dx[v_d[i]]:
-            #             dofs.append(v_d[i])
-            # # dof_e = v2d_e[c]
-            # # dof_i = v2d_i[c]
+
             for particle in cwp.particles:
                 x = particle.position
                 u = particle.velocity
@@ -344,11 +324,13 @@ class LagrangianParticles:
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
                 if np.sign(particle.properties['q']) == -1.:
-                    J_e_coefficients[:] += (particle.properties['q']/cwp.volume())*J_e_coefficients*np.dot(u, J_basis_matrix.T)[:]
-                    # J_e_coefficients[:] += particle.properties['q']*u[:]*np.dot(J_e_coefficients, J_basis_matrix)[:]/cwp.volume()
+                    J_e_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
+                    J_e_coefficients[3:] += (particle.properties['q']/cwp.volume())*u[1]*J_basis_matrix[3:, 1]
+                    # J_e_coefficients[:] += (particle.properties['q']/cwp.volume())*J_e_coefficients*np.dot(u, J_basis_matrix.T)[:]
                 if np.sign(particle.properties['q']) == 1.:
-                    J_i_coefficients[:] += (particle.properties['q']/cwp.volume())*J_i_coefficients*np.dot(u, J_basis_matrix.T)[:]
-                    # J_i_coefficients[:] += particle.properties['q']*u[:]*np.dot(J_i_coefficients, J_basis_matrix)[:]/cwp.volume()
+                    J_i_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
+                    J_i_coefficients[3:] += (particle.properties['q']/cwp.volume())*u[1]*J_basis_matrix[3:, 1]
+                    # J_i_coefficients[:] += (particle.properties['q']/cwp.volume())*J_i_coefficients*np.dot(u, J_basis_matrix.T)[:]
             J_e.vector()[cell_dof] = J_e_coefficients/2.0
             J_i.vector()[cell_dof] = J_i_coefficients/2.0
         return J_e, J_i
@@ -357,23 +339,6 @@ class LagrangianParticles:
         'Move particles by leap frog'
         start = df.Timer('shift')
         e_k = 0.0
-
-        v2d_e = df.vertex_to_dof_map(J_e.function_space())
-        v2d_i = df.vertex_to_dof_map(J_i.function_space())
-
-        v_d = df.vertex_to_dof_map(J_i.function_space())
-        d_v = df.dof_to_vertex_map(J_i.function_space())
-
-        # Coordinates of all dofs
-        dof_x = J_i.function_space().tabulate_dof_coordinates().reshape((-1, self.dim))
-        # di_dx[dof_index] = coordinates of dof
-        di_dx = dof_x.tolist()
-        # Coordinates of all vertices
-        vertex_x = self.mesh.coordinates().reshape((-1, self.dim))
-        # vi_vx[vertex_index] = coordinates of index
-        vi_vx = vertex_x.tolist()
-
-        n = J_i.function_space().dofmap().num_entity_dofs(0)
 
         for cwp in self.particle_map.itervalues():
             J_e_coefficients = np.zeros(J_e.function_space().dolfin_element().space_dimension())
@@ -396,27 +361,8 @@ class LagrangianParticles:
                        cwp.get_vertex_coordinates(),
                        cwp)
             c = cwp.entities(0)
-
             cell_dof = J_i.function_space().dofmap().cell_dofs(cwp.index())
-            # print("cell_dofs: ", cell_dof)
-            # #sys.exit()
-            # dofs = []
-            # for j in range(len(c)):
-            #     for i in range(len(v_d)):
-            #         if vi_vx[c[j]] == di_dx[v_d[i]]:
-            #             dofs.append(v_d[i])
-            # print("my dofs: ", dofs)
-            #print(c)
-            # print("c: ", c)
-            # print("dofs: ", dofs)
-            # print("vertex: ", cwp.get_vertex_coordinates())
-            # print("check (vertex): ", vi_vx[c[0]], vi_vx[c[1]], vi_vx[c[2]])
-            # print("dof c[0]: ", di_dx[dofs[0]], di_dx[dofs[1]])
-            # print("dof c[1]: ", di_dx[dofs[2]], di_dx[dofs[3]])
-            # print("dof c[2]: ", di_dx[dofs[4]], di_dx[dofs[5]])
-            # sys.exit()
-            # dof_e = v2d_e[c]
-            # dof_i = v2d_i[c]
+
             for particle in cwp.particles: #i,particle in enumerate(cwp.particles)
                 x = particle.position
                 u = particle.velocity
@@ -440,12 +386,15 @@ class LagrangianParticles:
                     e_k += (1./2.)*particle.properties['m']*np.dot(u_old[:], u[:])
 
                 if np.sign(particle.properties['q']) == -1.:
-                    J_e_coefficients[:] += (particle.properties['q']/cwp.volume())*J_e_coefficients*np.dot(u, J_basis_matrix.T)[:]
+                    J_e_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
+                    J_e_coefficients[3:] += (particle.properties['q']/cwp.volume())*u[1]*J_basis_matrix[3:, 1]
+                    # J_e_coefficients[:] += (particle.properties['q']/cwp.volume())*J_e_coefficients*np.dot(u, J_basis_matrix.T)[:]
                 if np.sign(particle.properties['q']) == 1.:
-                    J_i_coefficients[:] += (particle.properties['q']/cwp.volume())*J_i_coefficients*np.dot(u, J_basis_matrix.T)[:]
+                    J_i_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
+                    J_i_coefficients[3:] += (particle.properties['q']/cwp.volume())*u[1]*J_basis_matrix[3:, 1]
+                    # J_i_coefficients[:] += (particle.properties['q']/cwp.volume())*J_i_coefficients*np.dot(u, J_basis_matrix.T)[:]
 
                 x[:] = x[:] + dt*u[:]
-            # print(J_e_coefficients/2.0)
             J_e.vector()[cell_dof] = J_e_coefficients/2.0
             J_i.vector()[cell_dof] = J_i_coefficients/2.0
         # Recompute the map
