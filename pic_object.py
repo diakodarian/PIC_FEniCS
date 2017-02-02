@@ -238,6 +238,8 @@ t = []               # List to store time
 q_object = 0.0       # Initial object charge
 c = Constant(0.0)    # Initial object charge
 
+J_e = Function(VV)
+J_i = Function(VV)
 #-------------------------------------------------------------------------------
 #             Time loop
 #-------------------------------------------------------------------------------
@@ -262,8 +264,12 @@ for i, step in enumerate(range(tot_time)):
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, W)
 
-    info = lp.step(E, i, q_object, dt=dt)
+    info = lp.step(E, J_e, J_i, i, q_object, dt=dt)
     q_object = info[3]
+    J_e = info[4]
+    J_i = info[5]
+
+    J_e, J_i = lp.current_density(J_e, J_i)
 
     tot_n, n_proc = lp.total_number_of_particles()
     print("total_number_of_particles: ", tot_n)
@@ -300,6 +306,8 @@ if comm.Get_rank() == 0:
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
     #lp.particle_distribution()
-    File("plot/rho.pvd") << rho
-    File("plot/phi.pvd") << phi
-    File("plot/E.pvd") << E
+    File("Plots/rho.pvd") << rho
+    File("Plots/phi.pvd") << phi
+    File("Plots/E.pvd") << E
+    File("Plots/J_e.pvd") << J_e
+    File("Plots/J_i.pvd") << J_i
