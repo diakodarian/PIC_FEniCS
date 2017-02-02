@@ -19,10 +19,12 @@ def periodic_solver(f, V, solver, bc=None):
     a = inner(nabla_grad(u), nabla_grad(v))*dx
     L = f*v*dx
 
-    A, b = assemble_system(a, L)
-    if not bc == None:
-        bc.apply(A)
-        bc.apply(b)
+    if bc == None:
+        A, b = assemble_system(a, L)
+    else:
+        A, b = assemble_system(a, L, bc)
+        # bc.apply(A)
+        # bc.apply(b)
 
     phi = Function(V)
 
@@ -369,7 +371,7 @@ def test_periodic_object_solver():
     w2 = 2.*np.pi
 
     L = [l1, w1, l2, w2]
-    meshes = [Mesh("mesh/mesh.xml")]#,Mesh("mesh4.xml"),Mesh("mesh5.xml")]
+    meshes = [Mesh("mesh/circle.xml")]#,Mesh("mesh4.xml"),Mesh("mesh5.xml")]
     h = []
     E = []
     vol = l2*w2
@@ -389,7 +391,7 @@ def test_periodic_object_solver():
         square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
         square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
         square_boundary.mark(facet_f, 2)
-        #plot(facet_f, interactive=True)
+        plot(facet_f, interactive=True)
         #sys.exit()
         V, VV, W = periodic_bcs(mesh, L)
         class Source(Expression):

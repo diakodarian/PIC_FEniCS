@@ -159,7 +159,7 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
 #-------------------------------------------------------------------------------
 #         Create Krylov solver
 #-------------------------------------------------------------------------------
-solver = PETScKrylovSolver('gmres', 'hypre_amg')#, 'hypre_amg')#'gmres', 'ilu')
+solver = PETScKrylovSolver('gmres', 'hypre_amg')
 
 solver.parameters["absolute_tolerance"] = 1e-14
 solver.parameters["relative_tolerance"] = 1e-12
@@ -185,6 +185,20 @@ f = Function(V)
 bc = DirichletBC(V, c, facet_f, 1)
 phi = periodic_solver(f, V, solver, bc)
 E = E_field(phi, W)
+
+test_surface_integral = False
+if test_surface_integral == True:
+    # Example 1:
+    # Rotational field around the circular object
+    # The surface integral sould be 0.
+    func = Expression(('-1*(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '-1*(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
+    # Example 2:
+    # Gravitational field on the circular object
+    # The surface integral sould be 2*pi*r.
+    # func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
+    f = interpolate(func, VV)
+    E.assign(f)
+    plot(E, interactive=True)
 
 ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
 n = FacetNormal(mesh)

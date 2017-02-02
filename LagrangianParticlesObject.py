@@ -294,6 +294,35 @@ class LagrangianParticles:
                         q_rho += f.vector()[dof][0]*cwp.volume()
         return f, q_rho
 
+    def current_density(self, current, species):
+        'Particle charge weigthed at nodes'
+        v2d = df.vertex_to_dof_map(current.function_space())
+
+        for cwp in self.particle_map.itervalues():
+            j_coefficients = np.zeros(current.function_space().dolfin_element().space_dimension())
+            j_basis_matrix = np.zeros(current.function_space().dolfin_element().space_dimension())
+            current.restrict(j_coefficients,
+                       current.function_space().dolfin_element(),
+                       cwp,
+                       cwp.get_vertex_coordinates(),
+                       cwp)
+            c = cwp.entities(0)
+            dof = v2d[c]
+            for particle in cwp.particles:
+                x = particle.position
+                v = particle.velocity
+                # Compute velocity at position x
+                current.function_space().dolfin_element().evaluate_basis_all(j_basis_matrix,
+                                                x,
+                                                cwp.get_vertex_coordinates(),
+                                                cwp.orientation())
+                if (species == 'electron' and np.sign(particle.properties['q']) == -1.):
+                    j_coefficients[:] += particle.properties['q']*u[:]*np.dot(j_coefficients, j_basis_matrix)[:]/cwp.volume()
+                if (species == 'ion' and np.sign(particle.properties['q']) == 1.):
+                    j_coefficients[:] += particle.properties['q']*u[:]*np.dot(j_coefficients, j_basis_matrix)[:]/cwp.volume()
+            current.vector()[dof] = j_coefficients
+        return current
+
     def step(self, E, t_step, object_charge, dt):
         'Move particles by leap frog'
         start = df.Timer('shift')
