@@ -18,7 +18,7 @@ comm = pyMPI.COMM_WORLD
 #                           Mesh parameters
 #-------------------------------------------------------------------------------
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-d = 2              # Space dimension
+d = 3              # Space dimension
 l1 = 0.            # Start position x-axis
 l2 = 2.*np.pi      # End position x-axis
 w1 = 0.            # Start position y-axis
@@ -113,8 +113,8 @@ tot_time = 20             # Total simulation time
 dt = 0.251327             # Time step
 
 n_cells = mesh.num_cells()    # Number of cells
-N_e = n_pr_cell*n_cells       # Number of electrons
-N_i = n_pr_cell*n_cells       # Number of ions
+N_e = 1#n_pr_cell*n_cells       # Number of electrons
+N_i = 1#n_pr_cell*n_cells       # Number of ions
 #-------------------------------------------------------------------------------
 #                       Physical parameters
 #-------------------------------------------------------------------------------
@@ -166,8 +166,6 @@ solver.parameters["relative_tolerance"] = 1e-12
 solver.parameters["maximum_iterations"] = 1000
 #solver.parameters["monitor_convergence"] = True
 solver.parameters["convergence_norm_type"] = "true"
-#solver.parameters['preconditioner']['reuse'] = True
-#solver.parameters['preconditioner']['structure'] = 'same'
 #for item in solver.parameters.items(): print(item)
 solver.set_reuse_preconditioner(True)
 
@@ -241,6 +239,7 @@ c = Constant(0.0)    # Initial object charge
 J_e = Function(VV)
 J_i = Function(VV)
 
+B0 = np.array([0., 0., 0.1])
 #-------------------------------------------------------------------------------
 #             Time loop
 #-------------------------------------------------------------------------------
@@ -265,7 +264,7 @@ for i, step in enumerate(range(tot_time)):
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, W)
 
-    info = lp.step(E, J_e, J_i, i, q_object, dt=dt, B=None)
+    info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
     q_object = info[3]
     J_e = info[4]
     J_i = info[5]

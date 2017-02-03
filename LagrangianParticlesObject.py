@@ -135,7 +135,7 @@ class LagrangianParticles:
         # Time integration scheme:
         # True: leapfrog method
         # False: Boris algorithm
-        self.leap_frog = True
+        self.leap_frog = False
         self.element = V.dolfin_element()
         self.num_tensor_entries = 1
         for i in range(self.element.value_rank()):
@@ -392,9 +392,10 @@ class LagrangianParticles:
                 else:
                     # Boris step
                     assert not B == None
-                    t = np.tan(particle.properties['q']*B*dt/(2.*particle.properties['m']))
+                    assert self.dim == 3
+                    t = np.tan(particle.properties['q']*dt/(2.*particle.properties['m'])*B)
                     s = 2*t/(1+t[0]**2+t[1]**2+t[2]**2)
-                    v_minus[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                    v_minus = u + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)
                     v_minus_cross_t = np.cross(v_minus, t)
                     v_prime = v_minus + v_minus_cross_t
                     v_prime_cross_s = np.cross(v_prime, s)
