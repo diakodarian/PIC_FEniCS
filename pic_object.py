@@ -135,6 +135,8 @@ q_e = -e         # Electric charge - electron
 q_i = Z*e        # Electric charge - ions
 w = (l2*w2)/N_e  # Non-dimensionalization factor
 
+vd = np.array([1.5, 0., 0.])  # Drift velocity of the plasma particles
+
 capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
 print("capacitance_sphere: ", capacitance_sphere)
 #-------------------------------------------------------------------------------
@@ -189,11 +191,14 @@ if test_surface_integral == True:
     # Example 1:
     # Rotational field around the circular object
     # The surface integral sould be 0.
-    func = Expression(('-1*(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '-1*(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
+    # func = Expression(('-1*(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '-1*(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
     # Example 2:
-    # Gravitational field on the circular object
-    # The surface integral sould be 2*pi*r.
-    # func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
+    # Gravitational field on the circular/spherical object
+    # The surface integral sould be 2*pi*r or 4*pi*r**2.
+    if d ==2:
+        func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
+    elif d == 3:
+        func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))', '(x[2]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))'), a=np.pi, degree=2)
     f = interpolate(func, VV)
     E.assign(f)
     plot(E, interactive=True)
@@ -211,12 +216,12 @@ fig = plt.figure()
 lp.scatter_new(fig)
 fig.suptitle('Initial')
 
-data_to_file = False
+data_to_file = True
 
 if comm.Get_rank() == 0:
     fig.show()
     if data_to_file:
-        to_file = open('data/data.xyz', 'w')
+        to_file = open('data/dataB.xyz', 'w')
         to_file.write("%d\n" %len(initial_positions))
         to_file.write("PIC \n")
         for p1, p2 in map(None,initial_positions[n_electrons:],
@@ -239,7 +244,15 @@ c = Constant(0.0)    # Initial object charge
 J_e = Function(VV)
 J_i = Function(VV)
 
-B0 = np.array([0., 0., 0.1])
+B0 = np.array([0., 0., 0.01])     # Uniform background magnetic field
+B0_2 = np.linalg.norm(B0)         # Norm of the B-field
+
+E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
+
+phi0 = 0.0
+phi1 = np.linalg.norm(E0)
+
+
 #-------------------------------------------------------------------------------
 #             Time loop
 #-------------------------------------------------------------------------------

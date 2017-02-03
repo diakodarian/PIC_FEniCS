@@ -413,7 +413,6 @@ class LagrangianParticles:
                     J_i_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
                     J_i_coefficients[3:] += (particle.properties['q']/cwp.volume())*u[1]*J_basis_matrix[3:, 1]
                     # J_i_coefficients[:] += (particle.properties['q']/cwp.volume())*J_i_coefficients*np.dot(u, J_basis_matrix.T)[:]
-
                 x[:] = x[:] + dt*u[:]
             J_e.vector()[cell_dof] = J_e_coefficients/2.0
             J_i.vector()[cell_dof] = J_i_coefficients/2.0
