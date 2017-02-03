@@ -265,7 +265,7 @@ for i, step in enumerate(range(tot_time)):
         phi = dirichlet_solver(rho, V, bc)
         E = E_field(phi, W)
 
-    info = lp.step(E, J_e, J_i, i, q_object, dt=dt)
+    info = lp.step(E, J_e, J_i, i, q_object, dt=dt, B=None)
     q_object = info[3]
     J_e = info[4]
     J_i = info[5]

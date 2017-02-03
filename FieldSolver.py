@@ -358,7 +358,7 @@ def test_periodic_object_solver():
     solver.parameters["absolute_tolerance"] = 1e-14
     solver.parameters["relative_tolerance"] = 1e-12
     solver.parameters["maximum_iterations"] = 1000
-    #solver.parameters["monitor_convergence"] = True
+    solver.parameters["monitor_convergence"] = True
     solver.parameters["convergence_norm_type"] = "true"
     #solver.parameters['preconditioner']['reuse'] = True
     #solver.parameters['preconditioner']['structure'] = 'same'

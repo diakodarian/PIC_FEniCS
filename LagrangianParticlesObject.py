@@ -132,6 +132,10 @@ class LagrangianParticles:
         # interpolation. This updaea mounts to computing the basis matrix
         self.dim = self.mesh.topology().dim()
 
+        # Time integration scheme:
+        # True: leapfrog method
+        # False: Boris algorithm
+        self.leap_frog = True
         self.element = V.dolfin_element()
         self.num_tensor_entries = 1
         for i in range(self.element.value_rank()):
@@ -335,8 +339,8 @@ class LagrangianParticles:
             J_i.vector()[cell_dof] = J_i_coefficients/2.0
         return J_e, J_i
 
-    def step(self, E, J_e, J_i, t_step, object_charge, dt):
-        'Move particles by leap frog'
+    def step(self, E, J_e, J_i, t_step, object_charge, dt, B = None):
+        'Move particles by leap frog or/and Boris algorithm'
         start = df.Timer('shift')
         e_k = 0.0
 
@@ -376,14 +380,29 @@ class LagrangianParticles:
                                                 x,
                                                 cwp.get_vertex_coordinates(),
                                                 cwp.orientation())
-                # leap frog step
+
                 u_old = u[:]
 
                 if t_step == 0:
-                    u[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
-                else:
+                    dt /= 2.
+
+                if self.leap_frog:
+                    # leap frog step
                     u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
-                    e_k += (1./2.)*particle.properties['m']*np.dot(u_old[:], u[:])
+                else:
+                    # Boris step
+                    assert not B == None
+                    t = np.tan(particle.properties['q']*B*dt/(2.*particle.properties['m']))
+                    s = 2*t/(1+t[0]**2+t[1]**2+t[2]**2)
+                    v_minus[:] = u[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                    v_minus_cross_t = np.cross(v_minus, t)
+                    v_prime = v_minus + v_minus_cross_t
+                    v_prime_cross_s = np.cross(v_prime, s)
+                    v_plus = v_minus + v_prime_cross_s
+                    u[:] = v_plus[:] + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+
+                # Kinetic energy
+                e_k += (1./2.)*particle.properties['m']*np.dot(u_old[:], u[:])
 
                 if np.sign(particle.properties['q']) == -1.:
                     J_e_coefficients[:3] += (particle.properties['q']/cwp.volume())*u[0]*J_basis_matrix[:3, 0]
