@@ -46,7 +46,7 @@ def periodic_solver(f, V, solver, bc=None):
     solver.solve(phi.vector(), b)
     return phi
 
-def dirichlet_solver(f, V, bc):
+def dirichlet_solver(f, V, bcs, bc_object=None):
 
     # Define variational problem
     u = TrialFunction(V)
@@ -56,7 +56,18 @@ def dirichlet_solver(f, V, bc):
 
     # Compute solution
     phi = Function(V)
-    solve(a == L, phi, bc)
+    if bc_object == None:
+        solve(a == L, phi, bcs)
+    else:
+        bcs.append(bc_object)
+
+        A = assemble(a)
+        b = assemble(L)
+
+        [bc.apply(A) for bc in bcs]
+        [bc.apply(b) for bc in bcs]
+
+        solve(A, phi.vector(), b, 'cg', 'hypre_amg')
     return phi
 
 def E_field(phi, VV):

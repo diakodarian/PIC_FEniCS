@@ -64,14 +64,27 @@ if object_type == 'cylindrical_object':
 #-------------------------------------------------------------------------------
 facet_f = FacetFunction('size_t', mesh, 0)
 DomainBoundary().mark(facet_f, 1)
-if d == 2:
-    square_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol)'
-    square_boundary = CompiledSubDomain(square_boundary, l2=l2, w2=w2, tol=1E-8)
-    square_boundary.mark(facet_f, 2)
+
+boundary_l1 = 'near((x[0]-l1), 0, tol)'
+boundary_l2 = 'near((x[0]-l2), 0, tol)'
+boundary_w1 = 'near((x[1]-w1), 0, tol)'
+boundary_w2 = 'near((x[1]-w2), 0, tol)'
+boundary_l1 = CompiledSubDomain(boundary_l1, l1=l1, tol=1E-8)
+boundary_l2 = CompiledSubDomain(boundary_l2, l2=l2, tol=1E-8)
+boundary_w1 = CompiledSubDomain(boundary_w1, w1=w1, tol=1E-8)
+boundary_w2 = CompiledSubDomain(boundary_w2, w2=w2, tol=1E-8)
+boundary_l1.mark(facet_f, 2)
+boundary_l2.mark(facet_f, 3)
+boundary_w1.mark(facet_f, 4)
+boundary_w2.mark(facet_f, 5)
+
 if d == 3:
-    box_boundary = 'near(x[0]*(x[0]-l2), 0, tol) || near(x[1]*(x[1]-w2), 0, tol) || near(x[2]*(x[2]-h2), 0, tol)'
-    box_boundary = CompiledSubDomain(box_boundary, l2=l2, w2=w2, h2 = h2, tol=1E-8)
-    box_boundary.mark(facet_f, 2)
+    boundary_h1 = 'near((x[2]-h1), 0, tol)'
+    boundary_h2 = 'near((x[2]-h2), 0, tol)'
+    boundary_h1 = CompiledSubDomain(boundary_h1, h1=h1, tol=1E-8)
+    boundary_h2 = CompiledSubDomain(boundary_h2, h2=h2, tol=1E-8)
+    boundary_h1.mark(facet_f, 6)
+    boundary_h2.mark(facet_f, 7)
 
 #-------------------------------------------------------------------------------
 #                       Index of object vertices
@@ -113,8 +126,8 @@ tot_time = 20             # Total simulation time
 dt = 0.251327             # Time step
 
 n_cells = mesh.num_cells()    # Number of cells
-N_e = 1#n_pr_cell*n_cells       # Number of electrons
-N_i = 1#n_pr_cell*n_cells       # Number of ions
+N_e = n_pr_cell*n_cells       # Number of electrons
+N_i = n_pr_cell*n_cells       # Number of ions
 #-------------------------------------------------------------------------------
 #                       Physical parameters
 #-------------------------------------------------------------------------------
@@ -137,17 +150,47 @@ w = (l2*w2)/N_e  # Non-dimensionalization factor
 
 vd = np.array([1.5, 0., 0.])  # Drift velocity of the plasma particles
 
+B0 = np.array([0., 0., 0.01])     # Uniform background magnetic field
+B0_2 = np.linalg.norm(B0)         # Norm of the B-field
+
+E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
+
+
+
 capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
 print("capacitance_sphere: ", capacitance_sphere)
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
-periodic_field_solver = True # Periodic or Dirichlet bcs
+periodic_field_solver = False # Periodic or Dirichlet bcs
 if periodic_field_solver:
     V, VV, W = periodic_bcs(mesh, L)
 else:
-    u_D = Constant(-6.0)
-    bc, V, VV, W = dirichlet_bcs(u_D, mesh)
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
+
+    phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
+    phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+    phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+    phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+    phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+
+    bc0 = DirichletBC(V, phi_l1, boundary_l1)
+    bc1 = DirichletBC(V, phi_l2, boundary_l2)
+    bc2 = DirichletBC(V, phi_w1, boundary_w1)
+    bc3 = DirichletBC(V, phi_w2, boundary_w2)
+
+    bcs_Dirichlet = [bc0, bc1, bc2, bc3]
+    if d == 3:
+        phi_h1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        phi_h2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+
+        bc4 = DirichletBC(V, phi_h1, boundary_h1)
+        bc5 = DirichletBC(V, phi_h2, boundary_h2)
+
+        bcs_Dirichlet.append(bc4)
+        bcs_Dirichlet.append(bc5)
 
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
@@ -182,8 +225,8 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #-------------------------------------------------------------------------------
 c = Constant(1.0)
 f = Function(V)
-bc = DirichletBC(V, c, facet_f, 1)
-phi = periodic_solver(f, V, solver, bc)
+bc_object = DirichletBC(V, c, facet_f, 1)
+phi = periodic_solver(f, V, solver, bc_object)
 E = E_field(phi, W)
 
 test_surface_integral = False
@@ -244,15 +287,6 @@ c = Constant(0.0)    # Initial object charge
 J_e = Function(VV)
 J_i = Function(VV)
 
-B0 = np.array([0., 0., 0.01])     # Uniform background magnetic field
-B0_2 = np.linalg.norm(B0)         # Norm of the B-field
-
-E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
-
-phi0 = 0.0
-phi1 = np.linalg.norm(E0)
-
-
 #-------------------------------------------------------------------------------
 #             Time loop
 #-------------------------------------------------------------------------------
@@ -268,13 +302,14 @@ for i, step in enumerate(range(tot_time)):
     c.assign(phi_object)
 
     if periodic_field_solver:
-        bc = DirichletBC(V, c, facet_f, 1)
-        boundary_values = bc.get_boundary_values()
+        bc_object = DirichletBC(V, c, facet_f, 1)
+        # boundary_values = bc_object.get_boundary_values()
         # print("boundary_values: ", boundary_values)
-        phi = periodic_solver(rho, V, solver, bc)
+        phi = periodic_solver(rho, V, solver, bc_object)
         E = E_field(phi, W)
     else:
-        phi = dirichlet_solver(rho, V, bc)
+        bc_object = DirichletBC(V, c, facet_f, 1)
+        phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
         E = E_field(phi, W)
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)

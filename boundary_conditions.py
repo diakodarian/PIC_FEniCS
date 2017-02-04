@@ -108,22 +108,6 @@ def dirichlet_bcs(u_D, mesh, degree = 1):
     bc = DirichletBC(V, u_D, boundary)
     return bc, V, VV, W
 
-def dirichlet_bcs_drift(u_D, object_bc, mesh, degree = 1):
-    # Create dolfin function spaces
-    V = FunctionSpace(mesh, "CG", 1)
-    VV = VectorFunctionSpace(mesh, "CG", 1)
-    W = VectorFunctionSpace(mesh, 'DG', 0)
-
-    phi0 = u_D[0]
-    phi1 = u_D[1]
-    
-    # Create Dirichlet boundary condition
-    def boundary(x, on_boundary):
-      return on_boundary
-
-    bc = DirichletBC(V, u_D, boundary)
-    return bc, V, VV, W
-
 def test_dirichlet_bcs():
     divs = [[20,20], [20,20, 20]]
     L = [[-1., -1, 2., 1.], [-1., -1, 0, 2., 1., 1.]]
