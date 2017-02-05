@@ -159,58 +159,64 @@ def test_periodic_solver():
             plot(E, interactive=True)
 
 def test_dirichlet_solver():
-    divs = [[20,20], [20,20, 20]]
-    L = [[-1., -1, 2., 1.], [-1., -1, 0, 2., 1., 1.]]
-    mesh_type = ["UnitHyperCube", "HyperCube"]
-    tol = 1E-10
-    u_D = Expression('1 + x[0]*x[0] + 2*x[1]*x[1]', degree=2)
-    f = Constant(-6.0)
+    d = 2              # Space dimension
+    l1 = 0.            # Start position x-axis
+    l2 = 2.*np.pi      # End position x-axis
+    w1 = 0.            # Start position y-axis
+    w2 = 2.*np.pi      # End position y-axis
+    h1 = 0.            # Start position z-axis
+    h2 = 2.*np.pi      # End position z-axis
+    mesh = Mesh("mesh/circle.xml")
+    #-------------------------------------------------------------------------------
+    #                       Mark facets
+    #-------------------------------------------------------------------------------
+    facet_f = FacetFunction('size_t', mesh, 0)
+    DomainBoundary().mark(facet_f, 1)
 
-    for i in range(len(mesh_type)):
-        print("------ Test of mesh type ", mesh_type[i], "   ------")
-        for j in range(len(divs)):
-            divisions = divs[j]
-            print(len(divisions), "D test with ", divisions, " nodes.")
-            if i == 0:
-                mesh = UnitHyperCube(divisions)
-            elif i == 1:
-                mesh = HyperCube(L[j], divisions)
-            bc, V, VV, V_g = dirichlet_bcs(u_D, mesh)
-            phi = dirichlet_solver(f, V, bc)
+    boundary_l1 = 'near((x[0]-l1), 0, tol)'
+    boundary_l2 = 'near((x[0]-l2), 0, tol)'
+    boundary_w1 = 'near((x[1]-w1), 0, tol)'
+    boundary_w2 = 'near((x[1]-w2), 0, tol)'
+    boundary_l1 = CompiledSubDomain(boundary_l1, l1=l1, tol=1E-8)
+    boundary_l2 = CompiledSubDomain(boundary_l2, l2=l2, tol=1E-8)
+    boundary_w1 = CompiledSubDomain(boundary_w1, w1=w1, tol=1E-8)
+    boundary_w2 = CompiledSubDomain(boundary_w2, w2=w2, tol=1E-8)
+    boundary_l1.mark(facet_f, 2)
+    boundary_l2.mark(facet_f, 3)
+    boundary_w1.mark(facet_f, 4)
+    boundary_w2.mark(facet_f, 5)
 
-            # error_l2 = errornorm(u_D, phi, "L2")
-            # print("l2 norm: ", error_l2)
+    vd = np.array([1.5, 0., 0.])  # Drift velocity of the plasma particles
 
-            vertex_values_u_D = u_D.compute_vertex_values(mesh)
-            vertex_values_phi = phi.compute_vertex_values(mesh)
+    B0 = np.array([0., 0., 0.01])     # Uniform background magnetic field
+    B0_2 = np.linalg.norm(B0)         # Norm of the B-field
 
-            error_max = np.max(vertex_values_u_D - \
-                                vertex_values_phi)
+    E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
 
-            msg = 'error_max = %g' %error_max
-            assert error_max < tol , msg
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
 
-            plot(phi, interactive=True)
-            #plot(u_D, mesh=mesh, interactive=True)
+    phi_0 = 'x[0]*Ex + x[1]*Ey'
+    phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+    phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+    phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+    phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
 
-            # The gradient:
-            E = E_field(phi, V_g)
-            plot(E, interactive=True)
-            # flux_u_x, flux_u_y = E.split(deepcopy=True)
+    bc0 = DirichletBC(V, phi_l1, boundary_l1)
+    bc1 = DirichletBC(V, phi_l2, boundary_l2)
+    bc2 = DirichletBC(V, phi_w1, boundary_w1)
+    bc3 = DirichletBC(V, phi_w2, boundary_w2)
 
-            # Exact flux expressions
-            # u_e = lambda x, y: 1 + x**2 + 2*y**2
-            # flux_x_exact = lambda x, y: -2*x
-            # flux_y_exact = lambda x, y: -4*y
-            #
-            # # Compute error in flux
-            # coor = phi.function_space().mesh().coordinates()
-            # for i, value in enumerate(flux_u_x.compute_vertex_values()):
-            #     print('vertex %d, x = %s, -p*u_x = %g, error = %g' %
-            #           (i, tuple(coor[i]), value, flux_x_exact(*coor[i])))
-            # for i, value in enumerate(flux_u_y.compute_vertex_values()):
-            #     print('vertex %d, x = %s, -p*u_y = %g, error = %g' %
-            #           (i, tuple(coor[i]), value, flux_y_exact(*coor[i])))
+    bcs_Dirichlet = [bc0, bc1, bc2, bc3]
+    c = Constant(0.0)
+    bc_object = DirichletBC(V, c, facet_f, 1)
+    f = Function(V)
+    f = Constant(0.0)
+    phi = dirichlet_solver(f, V, bcs_Dirichlet, bc_object)
+    E = E_field(phi, W)
+
+    plot(phi, interactive=True)
 
 def test_D_solver():
     divs = [[3,3], [5,5], [7,7], [10,10]]
@@ -445,8 +451,9 @@ if __name__ == '__main__':
     from boundary_conditions import *
 
     #test_periodic_solver()
-    #test_dirichlet_solver()
+    test_dirichlet_solver()
 
     # test_p_solver()
     #test_D_solver()
+
     test_periodic_object_solver()
