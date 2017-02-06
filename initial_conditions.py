@@ -11,6 +11,20 @@ import sys
 
 comm = pyMPI.COMM_WORLD
 
+def random_1d_positions(L, N_e, N_i):
+    a = L[0]
+    b = L[1]
+
+    n_e_points = np.product(N_e)
+    points = np.random.rand(n_e_points)
+    initial_electron_positions = a + points*(b-a)
+
+    n_i_points = np.product(N_i)
+    points = np.random.rand(n_i_points)
+    initial_ion_positions = a + points*(b-a)
+
+    return initial_electron_positions, initial_ion_positions
+
 def random_2d_positions(L, N_e, N_i, random_domain):
     l1 = L[0]
     w1 = L[1]
@@ -353,6 +367,7 @@ def initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
     return initial_positions, initial_velocities, properties, n_electrons
 
 if __name__ == '__main__':
+
     d = 3
     N_e = 20000          # Number of electrons
     N_i = 20000        # Number of ions

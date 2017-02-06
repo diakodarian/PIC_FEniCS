@@ -216,6 +216,11 @@ def test_dirichlet_solver():
     phi = dirichlet_solver(f, V, bcs_Dirichlet, bc_object)
     E = E_field(phi, W)
 
+    coor = phi.function_space().mesh().coordinates()
+    phi_vert = phi.compute_vertex_values()
+    for i, value in enumerate(coor):
+        print(i, "  ", value, "  ", phi_vert[i])
+
     plot(phi, interactive=True)
 
 def test_D_solver():

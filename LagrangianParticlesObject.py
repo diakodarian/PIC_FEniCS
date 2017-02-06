@@ -136,6 +136,11 @@ class LagrangianParticles:
         # True: leapfrog method
         # False: Boris algorithm
         self.leap_frog = False
+        # Boundary conditions
+        # True: periodic bcs
+        # False: Dirichlet bcs
+        self.boundary_conditions = True
+
         self.element = V.dolfin_element()
         self.num_tensor_entries = 1
         for i in range(self.element.value_rank()):
@@ -485,17 +490,37 @@ class LagrangianParticles:
                     self.particle0.recv(proc)
                     list_of_escaped_particles.append(copy.deepcopy(self.particle0))
                     list_of_escaped_particles_velocity.append(copy.deepcopy(self.particle0.velocity))
+
+        # What to do with escaped particles
         particles_inside_object = []
+        particles_outside_domain = []
+        count_e = 0
+        count_i = 0
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
+            q = p.properties['q']
             d = len(x)
+
             for dim in range(len(x)):
                 l_min = self.mesh.coordinates()[:,dim].min()
                 l_max = self.mesh.coordinates()[:,dim].max()
                 l = l_max - l_min
+
                 if x[dim] < l_min or x[dim] > l_max:
-                    x[dim] = (x[dim]+abs(l_min))%l + l_min
+
+                    if self.boundary_conditions:# periodic boundary conditions
+                        x[dim] = (x[dim]+abs(l_min))%l + l_min
+                    else:# Dirichlet boundary conditions
+                        if np.sign(q) == 1.:
+                            count_i += 1
+                        elif np.sign(q) == -1.:
+                            count_e += 1
+                        particles_outside_domain.append(i)
+
+
+
+
             # If the particle hits the object remove it
             if self.object_type == 'spherical_object':
                 if d == 2:
@@ -835,7 +860,6 @@ class RandomGenerator(object):
         points_inside = comm.bcast(points_inside, root=0)
 
         return points_inside
-
 
 class RandomRectangle(RandomGenerator):
     def __init__(self, ll, ur):
