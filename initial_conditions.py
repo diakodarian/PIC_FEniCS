@@ -276,9 +276,9 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
 
     return initial_positions, n_total_particles, n_electrons, n_ions
 
-def random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i):
+def random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i, mu=0.,sigma=1.):
     # Initial Gaussian distribution of velocity components
-    mu, sigma = 0., 1. # mean and standard deviation
+    # mu, sigma are mean and standard deviation respectively
     initial_electron_velocities = \
     np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_electrons),
                                     (n_electrons, d))
