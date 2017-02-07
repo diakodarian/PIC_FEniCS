@@ -139,7 +139,7 @@ class LagrangianParticles:
         # Boundary conditions
         # True: periodic bcs
         # False: Dirichlet bcs
-        self.boundary_conditions = True
+        self.boundary_conditions = False
 
         self.element = V.dolfin_element()
         self.num_tensor_entries = 1
@@ -494,8 +494,8 @@ class LagrangianParticles:
         # What to do with escaped particles
         particles_inside_object = []
         particles_outside_domain = []
-        count_e = 0
-        count_i = 0
+        i_count = [0]*(2*self.dim)
+        e_count = [0]*(2*self.dim)
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
@@ -507,17 +507,67 @@ class LagrangianParticles:
                 l_max = self.mesh.coordinates()[:,dim].max()
                 l = l_max - l_min
 
-                if x[dim] < l_min or x[dim] > l_max:
-
-                    if self.boundary_conditions:# periodic boundary conditions
+                if self.boundary_conditions:# periodic boundary conditions
+                    if x[dim] < l_min or x[dim] > l_max:
                         x[dim] = (x[dim]+abs(l_min))%l + l_min
-                    else:# Dirichlet boundary conditions
-                        if np.sign(q) == 1.:
-                            count_i += 1
-                        elif np.sign(q) == -1.:
-                            count_e += 1
-                        particles_outside_domain.append(i)
+                else:# Dirichlet boundary conditions
+                    if x[dim] < l_min and np.sign(q) == 1.:
+                        i_count[2*dim] += 1
+                    elif x[dim] > l_max and np.sign(q) == 1.:
+                        i_count[2*dim+1] += 1
+                    if x[dim] < l_min and np.sign(q) == -1.:
+                        e_count[2*dim] += 1
+                    elif x[dim] > l_max and np.sign(q) == -1.:
+                        e_count[2*dim+1] += 1
 
+                    particles_outside_domain.append(i)
+
+        # add particles
+        if not self.boundary_conditions:
+            tot_count_e = np.sum(e_count)
+            tot_count_i = np.sum(i_count)
+            tot_count = tot_count_i + tot_count_e
+
+            l1 = self.mesh.coordinates()[:,0].min()
+            l2 = self.mesh.coordinates()[:,0].max()
+            w1 = self.mesh.coordinates()[:,1].min()
+            w2 = self.mesh.coordinates()[:,1].max()
+            Lx = [l1, l2]
+            Ly = [w1, w2]
+            if self.dim == 2:
+                e_pos_x1, e_pos_x2 =\
+                                random_1d_positions(Lx, count_e[2], count_e[3])
+                e_pos_y1, e_pos_y2 =\
+                                random_1d_positions(Ly, count_e[0], count_e[1])
+
+                i_pos_x1, i_pos_x2 =\
+                                random_1d_positions(Lx, count_i[2], count_i[3])
+                i_pos_y1, i_pos_y2 =\
+                                random_1d_positions(Ly, count_i[0], count_i[1])
+
+                x_e = np.empty((count_e[0]+count_e[1], self.dim))
+                for i in range(self.dim):
+                    x_e[i*count_e[0]:,0] = np.ones(count_e[i])*Lx[i]
+                    x_e[i*count_e[0]:,1] = e_pos_y[i*count_e[0]:i*count_e[0]+count_e[i]]
+
+                for i in range(self.dim):
+                    y_e[i*count_e[2]:,1] = np.ones(count_e[i+2])*Ly[i]
+                    y_e[i*count_e[2]:,0] = e_pos_x[i*count_e[2]:i*count_e[2]+count_e[i+2]]
+
+                x_e_max = np.empty((count_e[1], self.dim))
+                x_e_max[:,0] = np.ones(count_e[1])*l2
+                x_e_max[:,1] = e_pos_y2
+
+            elif self.dim == 3:
+                h1 = self.mesh.coordinates()[:,2].min()
+                h2 = self.mesh.coordinates()[:,2].max()
+                Lz = [h1, h2]
+                e_pos_z1, e_pos_z2 =\
+                                random_2d_positions(Lz, count_e[2], count_e[3])
+                e_pos_y1, e_pos_y2 =\
+                                random_1d_positions(Ly, count_e[0], count_e[1])
+                initial_electron_positions, initial_ion_positions =\
+                    random_2d_positions(L, count_e, count_i, 'box')
 
 
 
