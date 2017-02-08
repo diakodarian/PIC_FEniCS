@@ -6,6 +6,7 @@ from initial_conditions import initial_conditions
 from particleDistribution import speed_distribution
 from mesh_types import *
 from boundary_conditions import *
+from particle_injection import num_particles
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
@@ -125,21 +126,25 @@ n_pr_super_particle = 8   # Number of particles per super particle
 tot_time = 20             # Total simulation time
 dt = 0.251327             # Time step
 
+tot_volume = assemble(1*dx(mesh)) # Volume of simulation domain
+
 n_cells = mesh.num_cells()    # Number of cells
 N_e = n_pr_cell*n_cells       # Number of electrons
 N_i = n_pr_cell*n_cells       # Number of ions
+num_species = 2               # Number of species
 #-------------------------------------------------------------------------------
 #                       Physical parameters
 #-------------------------------------------------------------------------------
-epsilon_0 = 1.         # Permittivity of vacuum
-mu_0 = 1.              # Permeability of vacuum
-T_e = 0.               # Temperature - electrons
-T_i = 0.               # Temperature - ions
-kB = 1.                # Boltzmann's constant
-e = 1.                 # Elementary charge
-Z = 1                  # Atomic number
-m_e = 1.               # particle mass - electron
-m_i = 1836.15267389    # particle mass - ion
+n_plasma = N_e/tot_volume   # Plasma density
+epsilon_0 = 1.              # Permittivity of vacuum
+mu_0 = 1.                   # Permeability of vacuum
+T_e = 1.                    # Temperature - electrons
+T_i = 1.                    # Temperature - ions
+kB = 1.                     # Boltzmann's constant
+e = 1.                      # Elementary charge
+Z = 1                       # Atomic number
+m_e = 1.                    # particle mass - electron
+m_i = 1836.15267389         # particle mass - ion
 
 alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
 alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
@@ -156,6 +161,62 @@ B0_2 = np.linalg.norm(B0)         # Norm of the B-field
 E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
 
 
+#-------------------------------------------------------------------------------
+#                   Initilize particle injection process
+#-------------------------------------------------------------------------------
+if d == 2:
+    n0 = np.array([1, 0])
+    n1 = np.array([-1, 0])
+    n2 = np.array([0, 1])
+    n3 = np.array([0, -1])
+
+    v_n0 = np.dot(vd, n0)
+    v_n1 = np.dot(vd, n1)
+    v_n2 = np.dot(vd, n2)
+    v_n3 = np.dot(vd, n3)
+
+    v_n = np.array([v_n0,v_n1,v_n2,v_n3])
+
+    A_surface = l2
+    count_e = []
+    count_i = []
+    for i in range(num_species):
+        for j in range(len(v_n)):
+            if i == 0:
+                num_e = num_particles(A_surface, dt, n_plasma, v_n[j], alpha_e)
+                count_e.append(num_e)
+            elif i == 1:
+                num_i = num_particles(A_surface, dt, n_plasma, v_n[j], alpha_i)
+                count_i.append(num_i)
+
+if d == 3:
+    n0 = np.array([1, 0, 0])
+    n1 = np.array([-1, 0, 0])
+    n2 = np.array([0, 1, 0])
+    n3 = np.array([0, -1, 0])
+    n4 = np.array([0, 0, 1])
+    n5 = np.array([0, 0, -1])
+
+    v_n0 = np.dot(vd, n0)
+    v_n1 = np.dot(vd, n1)
+    v_n2 = np.dot(vd, n2)
+    v_n3 = np.dot(vd, n3)
+    v_n4 = np.dot(vd, n4)
+    v_n5 = np.dot(vd, n5)
+
+    v_n = np.array([v_n0,v_n1,v_n2,v_n3,v_n4,v_n5])
+
+    A_surface = l2*w2
+    count_e = []
+    count_i = []
+    for i in range(num_species):
+        for j in range(len(v_n)):
+            if i == 0:
+                num_e = num_particles(A_surface, dt, n_plasma, v_n[j], alpha_e)
+                count_e.append(num_e)
+            elif i == 1:
+                num_i = num_particles(A_surface, dt, n_plasma, v_n[j], alpha_i)
+                count_i.append(num_i)
 
 capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
 print("capacitance_sphere: ", capacitance_sphere)
