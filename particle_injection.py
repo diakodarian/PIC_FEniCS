@@ -1,6 +1,12 @@
 import numpy as np
 from initial_conditions import random_1d_positions, random_2d_positions
 from initial_conditions import random_velocities
+from math import erf
+
+def num_particles(A, dt, n_p, v_n, alpha):
+    N = n_p*A*dt*( (alpha/(np.sqrt(2*np.pi)) * np.exp(-v_n**2/(2*alpha**2))) +\
+                    0.5*v_n*(1. + erf(v_n/(alpha*np.sqrt(2)))) )
+    return N
 
 def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
     l1 = L[0]
@@ -48,34 +54,30 @@ def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
 
     p_positions = np.array(p_positions)
 
-
-    electron_velocities, ion_velocities =\
-    random_velocities(n_electrons, n_ions, dim, alpha_e, alpha_i,mu,sigma)
     velocities = []
-    velocities.extend(electron_velocities)
-    velocities.extend(ion_velocities)
+    for i in range(len(p_positions)):
+        move = True
+        while move:
+            velocity = alpha_e * np.random.normal(mu, sigma, dim)
+            w = np.random.rand()
+            x = p_positions[i] + w*dt*velocity
+            k = 2
+            cond = []
+            for j in range(dim):
+                if x[j] < L[j] or x[j] > L[2*j+k]:
+                    cond.append(j)
+                k -=1
+            if len(cond)>0:
+                move = True
+            elif len(cond) == 0:
+                move = False
+                p_positions[i] = x
+                velocities.append(velocity)
+
     velocities = np.array(velocities)
+    return p_positions, velocities
 
-    w = np.random.rand(len(velocities))
-    p_positions[:,0]  += dt*w*velocities[:,0]
-    p_positions[:,1]  += dt*w*velocities[:,1]
-
-    antall = []
-    print "length: ", len(p_positions)
-    for j in range(len(p_positions)):
-        x = p_positions[j,:]
-        #print "x: ", x
-        k = 2
-        for i in range(dim):
-            #print "    ", i,  "  ", 2*i+k
-            if x[i] < L[i] or x[i] > L[2*i+k]:
-                #print "out: ", x[i]
-                antall.append(j)
-            k -=1
-    print antall, "  ", len(antall)
-    return p_positions
-
-def inject_particles_3d(L, count_e, count_i):
+def inject_particles_3d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
     l1 = L[0]
     w1 = L[1]
     h1 = L[2]
@@ -135,7 +137,29 @@ def inject_particles_3d(L, count_e, count_i):
         p_positions.extend(e_pos)
 
     p_positions = np.array(p_positions)
-    return p_positions
+    velocities = []
+    for i in range(len(p_positions)):
+        move = True
+        while move:
+            velocity = alpha_e * np.random.normal(mu, sigma, dim)
+            w = np.random.rand()
+            x = p_positions[i] + w*dt*velocity
+            k = 3
+            cond = []
+            for j in range(dim):
+                if x[j] < L[j] or x[j] > L[2*j+k]:
+                    cond.append(j)
+                k -=1
+            if len(cond)>0:
+                move = True
+            elif len(cond) == 0:
+                move = False
+                p_positions[i] = x
+                velocities.append(velocity)
+
+    velocities = np.array(velocities)
+    return p_positions, velocities
+
 if __name__ == '__main__':
     l1 = 0.
     l2 = 2*np.pi
@@ -151,12 +175,45 @@ if __name__ == '__main__':
     alpha_i = 1.
     mu = 3.
     sigma = 1.
+    # test 2d:
     count_e = [1, 2, 3, 4]
     count_i = [2, 3, 4, 5]
-    p = inject_particles_2d(L2d, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt)
-    print p
+    p, vel = inject_particles_2d(L2d, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt)
 
-    # count_e = [2,2,3,2,2,2]
-    # count_i = [2,2,3,2,2,2]
-    # p = inject_particles_3d(L3d, count_e, count_i)
-    # print p
+
+    import matplotlib.colors as colors
+    import matplotlib.cm as cmx
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.gca()
+    skip = 1
+    n_electrons = np.sum(count_e)
+    p_electrons = p[:n_electrons]
+    p_ions = p[n_electrons:]
+
+    ax.scatter(p_ions[::skip, 0], p_ions[::skip, 1],
+               label='ions',
+               marker='o',
+               c='r',
+               edgecolor='none')
+    ax.scatter(p_electrons[::skip, 0], p_electrons[::skip, 1],
+               label='electrons',
+               marker = 'o',
+               c='b',
+               edgecolor='none')
+    ax.legend(loc='best')
+    ax.axis([l1, l2, w1, w2])
+    plt.show()
+    # test 3d
+    count_e = [2,2,3,2,2,2]
+    count_i = [2,2,3,2,2,2]
+    p, vel = inject_particles_3d(L3d, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt)
+
+
+    A = l2*l2
+    dt = 0.25
+    n_p = 10
+    v_n = 10.0
+    alpha = 1.5
+    N_a = num_particles(A, dt, n_p, v_n, alpha)
+    print N_a
