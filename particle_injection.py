@@ -55,26 +55,53 @@ def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
     p_positions = np.array(p_positions)
 
     velocities = []
-    for i in range(len(p_positions)):
-        move = True
-        while move:
-            velocity = alpha_e * np.random.normal(mu, sigma, dim)
-            w = np.random.rand()
-            x = p_positions[i] + w*dt*velocity
+    reject_particles = False
+    if reject_particles:
+        for i in range(len(p_positions)):
+            move = True
+            while move:
+                velocity = alpha_e * np.random.normal(mu, sigma, dim)
+                w = np.random.rand()
+                x = p_positions[i] + w*dt*velocity
+                k = 2
+                cond = []
+                for j in range(dim):
+                    if x[j] < L[j] or x[j] > L[2*j+k]:
+                        cond.append(j)
+                    k -=1
+                if len(cond)>0:
+                    move = True
+                elif len(cond) == 0:
+                    move = False
+                    p_positions[i] = x
+                    velocities.append(velocity)
+        velocities = np.array(velocities)
+    else:
+        electron_velocities, ion_velocities =\
+        random_velocities(n_electrons, n_ions, dim, alpha_e, alpha_i, mu, sigma)
+
+        velocities.extend(electron_velocities)
+        velocities.extend(ion_velocities)
+        velocities = np.array(velocities)
+
+        w = np.random.rand(len(velocities))
+        p_positions[:,0]  += dt*w*velocities[:,0]
+        p_positions[:,1]  += dt*w*velocities[:,1]
+
+        index_outside = []
+        #print p_positions
+        for i in range(len(p_positions)):
+            x = p_positions[i]
             k = 2
-            cond = []
             for j in range(dim):
                 if x[j] < L[j] or x[j] > L[2*j+k]:
-                    cond.append(j)
-                k -=1
-            if len(cond)>0:
-                move = True
-            elif len(cond) == 0:
-                move = False
-                p_positions[i] = x
-                velocities.append(velocity)
-
-    velocities = np.array(velocities)
+                    index_outside.append(i)
+                k -= 1
+        #index_outside = set(index_outside)
+        #print len(index_outside<=n_electrons)
+        p_positions = np.delete(p_positions, index_outside, axis=0)
+        velocities = np.delete(velocities, index_outside, axis=0)
+        #print p_positions
     return p_positions, velocities
 
 def inject_particles_3d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):

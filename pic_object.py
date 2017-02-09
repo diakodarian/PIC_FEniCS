@@ -287,6 +287,7 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 c = Constant(1.0)
 f = Function(V)
 bc_object = DirichletBC(V, c, facet_f, 1)
+# boundary_values = bc_object.get_boundary_values()
 phi = periodic_solver(f, V, solver, bc_object)
 E = E_field(phi, W)
 
