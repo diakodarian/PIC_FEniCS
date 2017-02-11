@@ -2,6 +2,8 @@ from __future__ import print_function
 from LagrangianParticles_test import RandomBox, RandomSphere
 from LagrangianParticles_test import RandomCircle, RandomRectangle
 from particleDistribution import speed_distribution
+from particleDistribution import hist_plot
+
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
@@ -276,6 +278,17 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
 
     return initial_positions, n_total_particles, n_electrons, n_ions
 
+def random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
+    d = len(mu_e)
+    e_velocity = np.empty((n_electrons,d))
+    i_velocity = np.empty((n_ions,d))
+
+    for i in range(d):
+        e_velocity[:,i] = np.random.normal(mu_e[i], sigma_e[i], n_electrons)
+        i_velocity[:,i] = np.random.normal(mu_i[i], sigma_i[i], n_ions)
+
+    return e_velocity, i_velocity
+
 def random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i, mu=0.,sigma=1.):
     # Initial Gaussian distribution of velocity components
     # mu, sigma are mean and standard deviation respectively
@@ -368,7 +381,7 @@ def initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
 
 if __name__ == '__main__':
 
-    d = 3
+    d = 2
     N_e = 20000          # Number of electrons
     N_i = 20000        # Number of ions
     # Physical parameters
@@ -383,6 +396,18 @@ if __name__ == '__main__':
 
     alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
     alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
+
+    mu_e = [3,0]
+    mu_i = [3,0]
+    sigma_e = [alpha_e, alpha_e]
+    sigma_i = [alpha_i, alpha_i]
+
+    e_vel, i_vel = random_velocities_new(N_e, N_i, d, mu_e, mu_i, sigma_e, sigma_i)
+    fil = ['bs1','bs2']
+    for i in range(d):
+        hist_plot('Gaussian', e_vel[:,i], sigma_e[i], d, fil[i], mu_e[i], 100)
+
+    sys.exit()
 
     q_e = -e     # Electric charge - electron
     q_i = Z*e    # Electric charge - ions

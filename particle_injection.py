@@ -1,14 +1,16 @@
 import numpy as np
 from initial_conditions import random_1d_positions, random_2d_positions
-from initial_conditions import random_velocities
+from initial_conditions import random_velocities_new, random_velocities
 from math import erf
+from particleDistribution import speed_distribution, hist_plot
+import sys
 
 def num_particles(A, dt, n_p, v_n, alpha):
     N = n_p*A*dt*( (alpha/(np.sqrt(2*np.pi)) * np.exp(-v_n**2/(2*alpha**2))) +\
                     0.5*v_n*(1. + erf(v_n/(alpha*np.sqrt(2)))) )
     return N
 
-def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
+def inject_particles_2d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
     l1 = L[0]
     w1 = L[1]
     l2 = L[2]
@@ -60,7 +62,7 @@ def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
         for i in range(len(p_positions)):
             move = True
             while move:
-                velocity = alpha_e * np.random.normal(mu, sigma, dim)
+                velocity = alpha_e * np.random.normal(mu_e[0], sigma_e[0], dim)
                 w = np.random.rand()
                 x = p_positions[i] + w*dt*velocity
                 k = 2
@@ -78,12 +80,11 @@ def inject_particles_2d(L, count_e, count_i, alpha_e, alpha_i, mu, sigma, dt):
         velocities = np.array(velocities)
     else:
         electron_velocities, ion_velocities =\
-        random_velocities(n_electrons, n_ions, dim, alpha_e, alpha_i, mu, sigma)
+        random_velocities_new(n_electrons, n_ions, dim, mu_e, mu_i, sigma_e, sigma_i)
 
-        velocities.extend(electron_velocities)
-        velocities.extend(ion_velocities)
-        velocities = np.array(velocities)
-
+        # velocities.extend(electron_velocities)
+        # velocities.extend(ion_velocities)
+        # velocities = np.array(velocities)
         w = np.random.rand(len(velocities))
         p_positions[:,0]  += dt*w*velocities[:,0]
         p_positions[:,1]  += dt*w*velocities[:,1]
@@ -231,8 +232,23 @@ if __name__ == '__main__':
     dt = 0.1
     alpha_e = 1.
     alpha_i = 1.
-    mu = 3.
-    sigma = 1.
+
+    # ----Tests------------
+    d = 3
+    n_electrons = 10000000
+    n_ions = 5000
+
+    mu_e = [0.,0.,0.]
+    mu_i = [3,0,0]
+    sigma_e = [alpha_e, alpha_e, alpha_e]
+    sigma_i = [alpha_i, alpha_i, alpha_i]
+
+    e_vel, i_vel =\
+    random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
+
+    speed_distribution(e_vel, mu_e, sigma_e)
+
+    sys.exit()
     # test 2d:
     count_e = [1, 2, 3, 4]
     count_i = [2, 3, 4, 5]
@@ -248,7 +264,6 @@ if __name__ == '__main__':
     #n_electrons = np.sum(count_e)
     p_electrons = p[:n_electrons]
     p_ions = p[n_electrons:]
-
     ax.scatter(p_ions[::skip, 0], p_ions[::skip, 1],
                label='ions',
                marker='o',
