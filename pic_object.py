@@ -1,9 +1,9 @@
 from __future__ import print_function
 from LagrangianParticlesObject import LagrangianParticles, RandomCircle
 from LagrangianParticlesObject import RandomRectangle, RandomBox, RandomSphere
-from FieldSolver import periodic_solver, dirichlet_solver, E_field
+from Poisson_solver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
-from particleDistribution import speed_distribution
+from particle_distribution import speed_distribution
 from mesh_types import *
 from boundary_conditions import *
 from particle_injection import num_particles

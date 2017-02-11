@@ -223,7 +223,7 @@ def test_periodic_bcs():
 if __name__=='__main__':
 
     from mesh_types import *
-    from FieldSolver import *
+    from Poisson_solver import *
     import numpy as np
 
     # Run the tests

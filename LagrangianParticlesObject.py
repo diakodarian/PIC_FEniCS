@@ -14,7 +14,7 @@ import copy
 from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
-from particleDistribution import *
+from particle_distribution import *
 import sys
 
 # Disable printing
@@ -53,9 +53,15 @@ class CellWithParticles(df.Cell):
         df.Cell.__init__(self, mesh, cell_id)
         # Make an empty list of particles that I carry
         self.particles = []
-        #self += particle
         self.__add__(particle, velocity)
+        # Make the cell aware of its neighbors; neighbor cells are cells
+        # connected to this one by vertices
+        tdim = mesh.topology().dim()
 
+        neighbors = sum((vertex.entities(tdim).tolist() for vertex in df.vertices(self)), [])
+        neighbors = set(neighbors) - set([cell_id])   # Remove self
+        self.neighbors = map(lambda neighbor_index: df.Cell(mesh, neighbor_index),
+                         neighbors)
 
     def __add__(self, particle, velocity):
         'Add single particle to cell.'
@@ -117,7 +123,7 @@ class LagrangianParticles:
 
         self.V = V
         self.mesh = V.mesh()
-        self.mesh.init(2, 2)  # Cell-cell connectivity for neighbors of cell
+        # self.mesh.init(2, 2)  # Cell-cell connectivity for neighbors of cell
         self.tree = self.mesh.bounding_box_tree()  # Tree for isection comput.
 
         # The object
@@ -131,7 +137,7 @@ class LagrangianParticles:
         # update basis_i(x) depending on x, i.e. particle where we make
         # interpolation. This updaea mounts to computing the basis matrix
         self.dim = self.mesh.topology().dim()
-
+        self.mesh.init(0, self.dim)  # Vertex-to-cell connectivity for neighb. comput
         # Time integration scheme:
         # True: leapfrog method
         # False: Boris algorithm
@@ -444,7 +450,8 @@ class LagrangianParticles:
                 if not cwp.contains(point):
                     found = False
                     # Check neighbor cells
-                    for neighbor in df.cells(cwp):
+                    # for neighbor in df.cells(cwp):
+                    for neighbor in cwp.neighbors:
                         if neighbor.contains(point):
                             new_cell_id = neighbor.index()
                             found = True

@@ -1,8 +1,8 @@
 from __future__ import print_function
-from LagrangianParticles_test import RandomBox, RandomSphere
-from LagrangianParticles_test import RandomCircle, RandomRectangle
-from particleDistribution import speed_distribution
-from particleDistribution import hist_plot
+from LagrangianParticlesObject import RandomBox, RandomSphere
+from LagrangianParticlesObject import RandomCircle, RandomRectangle
+from particle_distribution import speed_distribution
+from particle_distribution import hist_plot
 
 import matplotlib.pyplot as plt
 from dolfin import *

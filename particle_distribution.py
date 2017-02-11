@@ -126,29 +126,34 @@ if __name__ == '__main__':
 
     alpha_e = np.sqrt(kB*T/m) # Boltzmann factor
 
+    test_2d = True
+    test_3d = False
+    
     # 2D test
-    # d = 2
-    # mu = [[1.,1], [10.,10.]]
-    # sigma = [[1.,1.],[10.,10.]]
-    # for j in range(len(mu)):
-    #     mu_ = mu[j]
-    #     for k in range(len(sigma)):
-    #         sigma_ = sigma[k]
-    #         velocities = np.empty((n_particles,d))
-    #         for i in range(d):
-    #             velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
-    #         speed_distribution(velocities, mu_, sigma_)
+    if test_2d:
+        d = 2
+        mu = [[1.,1], [5.,9.]]
+        sigma = [[1.,1.],[5.,5.]]
+        for j in range(len(mu)):
+            mu_ = mu[j]
+            for k in range(len(sigma)):
+                sigma_ = sigma[k]
+                velocities = np.empty((n_particles,d))
+                for i in range(d):
+                    velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
+                speed_distribution(velocities, mu_, sigma_)
 
     # 3D test
-    d = 3
-    mu = [[1.,1.,1.], [10.,10.,10.]]
-    sigma = [[1.,1.,1.],[10.,10.,10.]]
-    for j in range(len(mu)):
-        mu_ = mu[j]
-        for k in range(len(sigma)):
-            sigma_ = sigma[k]
-            velocities = np.empty((n_particles,d))
-            for i in range(d):
-                velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
-            speed_distribution(velocities, mu_, sigma_)
+    if test_3d:
+        d = 3
+        mu = [[1.,1.,1.], [10.,10.,10.]]
+        sigma = [[1.,1.,1.],[10.,10.,10.]]
+        for j in range(len(mu)):
+            mu_ = mu[j]
+            for k in range(len(sigma)):
+                sigma_ = sigma[k]
+                velocities = np.empty((n_particles,d))
+                for i in range(d):
+                    velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
+                speed_distribution(velocities, mu_, sigma_)
     plt.show()
