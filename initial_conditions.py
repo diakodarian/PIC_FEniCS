@@ -278,7 +278,7 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
 
     return initial_positions, n_total_particles, n_electrons, n_ions
 
-def random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
+def random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
     d = len(mu_e)
     e_velocity = np.empty((n_electrons,d))
     i_velocity = np.empty((n_ions,d))
@@ -289,27 +289,16 @@ def random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
 
     return e_velocity, i_velocity
 
-def random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i, mu=0.,sigma=1.):
-    # Initial Gaussian distribution of velocity components
-    # mu, sigma are mean and standard deviation respectively
-    initial_electron_velocities = \
-    np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_electrons),
-                                    (n_electrons, d))
-    initial_ion_velocities = \
-    np.reshape(alpha_i * np.random.normal(mu, sigma, d*n_ions),
-                                    (n_ions, d))
-    return initial_electron_velocities, initial_ion_velocities
+def object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
+    d = len(mu_e)
+    e_velocity = np.empty((n_electrons,d))
+    i_velocity = np.empty((n_ions,d))
 
-def object_velocities(n_electrons, n_ions, d, alpha_e, alpha_i):
-    # Initial Gaussian distribution of velocity components
-    mu, sigma = 0., 1. # mean and standard deviation
-    initial_electron_velocities = \
-    np.reshape(alpha_e * np.random.normal(mu, sigma, d*n_electrons),
-                                    (n_electrons, d))
-    initial_ion_velocities = \
-    np.reshape(alpha_i * np.random.normal(mu, sigma, d*n_ions),
-                                    (n_ions, d))
-    return initial_electron_velocities, initial_ion_velocities
+    for i in range(d):
+        e_velocity[:,i] = np.random.normal(mu_e[i], sigma_e[i], n_electrons)
+        i_velocity[:,i] = np.random.normal(mu_i[i], sigma_i[i], n_ions)
+
+    return e_velocity, i_velocity
 
 def Langmuir_waves_velocities(d, n_electrons, n_ions):
     initial_electron_velocities = np.zeros((n_electrons, d))
@@ -317,20 +306,20 @@ def Langmuir_waves_velocities(d, n_electrons, n_ions):
     return initial_electron_velocities, initial_ion_velocities
 
 def intialize_particle_velocities(n_electrons, n_ions, L,
-                                  alpha_e, alpha_i, initial_type):
+                                  mu_e, mu_i, sigma_e, sigma_i, initial_type):
     d = int(len(L)/2)
     if initial_type == 'random':
         initial_electron_velocities, initial_ion_velocities = \
-        random_velocities(n_electrons, n_ions, d, alpha_e, alpha_i)
+        random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
     if initial_type == 'Langmuir_waves':
         initial_electron_velocities, initial_ion_velocities = \
         Langmuir_waves_velocities(d, n_electrons, n_ions)
     if initial_type == 'spherical_object':
         initial_electron_velocities, initial_ion_velocities = \
-        object_velocities(n_electrons, n_ions, d, alpha_e, alpha_i)
+        object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
     if initial_type == 'cylindrical_object':
         initial_electron_velocities, initial_ion_velocities = \
-        object_velocities(n_electrons, n_ions, d, alpha_e, alpha_i)
+        object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
 
     initial_velocities = []
     initial_velocities.extend(initial_electron_velocities)
@@ -367,21 +356,39 @@ def intialize_particle_properties(n_electrons, n_ions, w, q_e, q_i, m_e, m_i):
     return properties
 
 def initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i,
-                       alpha_e, alpha_i, object_info, random_domain,
-                       initial_type):
+                       mu_e, mu_i, sigma_e, sigma_i,
+                       object_info, random_domain, initial_type):
 
     initial_positions, n_total_particles, n_electrons, n_ions = \
-    initialize_particle_positions(N_e, N_i, L, random_domain, initial_type, object_info)
-    initial_velocities = intialize_particle_velocities(n_electrons, n_ions, L,
-                                  alpha_e, alpha_i, initial_type)
-    properties = \
-    intialize_particle_properties(n_electrons, n_ions, w, q_e, q_i, m_e, m_i)
+    initialize_particle_positions(N_e,
+                                  N_i,
+                                  L,
+                                  random_domain,
+                                  initial_type,
+                                  object_info)
+
+    initial_velocities = intialize_particle_velocities(n_electrons,
+                                                       n_ions,
+                                                       L,
+                                                       mu_e,
+                                                       mu_i,
+                                                       sigma_e,
+                                                       sigma_i,
+                                                       initial_type)
+
+    properties = intialize_particle_properties(n_electrons,
+                                               n_ions,
+                                               w,
+                                               q_e,
+                                               q_i,
+                                               m_e,
+                                               m_i)
 
     return initial_positions, initial_velocities, properties, n_electrons
 
 if __name__ == '__main__':
 
-    d = 2
+    d = 3
     N_e = 20000          # Number of electrons
     N_i = 20000        # Number of ions
     # Physical parameters
@@ -397,18 +404,6 @@ if __name__ == '__main__':
     alpha_e = np.sqrt(kB*T_e/m_e) # Boltzmann factor
     alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
 
-    mu_e = [3,0]
-    mu_i = [3,0]
-    sigma_e = [alpha_e, alpha_e]
-    sigma_i = [alpha_i, alpha_i]
-
-    e_vel, i_vel = random_velocities_new(N_e, N_i, d, mu_e, mu_i, sigma_e, sigma_i)
-    fil = ['bs1','bs2']
-    for i in range(d):
-        hist_plot('Gaussian', e_vel[:,i], sigma_e[i], d, fil[i], mu_e[i], 100)
-
-    sys.exit()
-
     q_e = -e     # Electric charge - electron
     q_i = Z*e    # Electric charge - ions
     w = rho_p/N_e
@@ -420,17 +415,36 @@ if __name__ == '__main__':
     h1 = 0.
     h2 = 2.*np.pi
 
+    test_random_velocities = False
+    if test_random_velocities:
+        mu_e = [3,0]
+        mu_i = [3,0]
+        sigma_e = [alpha_e, alpha_e]
+        sigma_i = [alpha_i, alpha_i]
+        e_vel, i_vel = random_velocities(N_e, N_i, mu_e, mu_i, sigma_e, sigma_i)
+        fil = ['compx','compy']
+        for i in range(d):
+            hist_plot(e_vel[:,i], mu_e[i], sigma_e[i], d, 'Gaussian',100,fil[i])
+
     # The object:
-    object_type = 'cylindrical_object' # Options sphere or cylinder or None
+    object_type = 'spherical_object' # Options sphere or cylinder or None
     if object_type == 'spherical_object':
         x0 = np.pi
         y0 = np.pi
         z0 = np.pi
         r0 = 0.5
         if d == 2:
+            mu_e = [0,0]
+            mu_i = [0,0]
+            sigma_e = [alpha_e, alpha_e]
+            sigma_i = [alpha_i, alpha_i]
             object_info = [x0, y0, r0]
             l = [l1, w1, l2, w2]
         elif d==3:
+            mu_e = [10,0, 0]
+            mu_i = [10,0, 0]
+            sigma_e = [alpha_e, alpha_e, alpha_e]
+            sigma_i = [alpha_i, alpha_i, alpha_i]
             object_info = [x0, y0, z0, r0]
             l = [l1, w1, h1, l2, w2, h2]
     if object_type == 'cylindrical_object':
@@ -438,14 +452,18 @@ if __name__ == '__main__':
         y0 = np.pi
         r0 = 0.5
         h0 = 4.0
-
+        mu_e = [3,0, 0]
+        mu_i = [3,0, 0]
+        sigma_e = [alpha_e, alpha_e, alpha_e]
+        sigma_i = [alpha_i, alpha_i, alpha_i]
         object_info = [x0, y0, r0, h0]
         l = [l1, w1, h1, l2, w2, h2]
 
     initial_positions, initial_velocities, properties, n_electrons = \
     initial_conditions(N_e, N_i, l, w, q_e, q_i, m_e, m_i,
-                           alpha_e, alpha_i, object_info, random_domain = 'box',
-                           initial_type = object_type)
+                       mu_e, mu_i, sigma_e, sigma_i, object_info,
+                       random_domain = 'box',
+                       initial_type = object_type)
     # print("positions: ", initial_positions)
     # print("positions: ", initial_velocities)
     # print("positions: ", properties)
@@ -520,13 +538,9 @@ if __name__ == '__main__':
 
     if object_type == None:
         fig = plt.figure()
-        count, bins, ignored = plt.hist(initial_positions[:n_electrons,0], 600, normed=True)
-
+        count, bins, ignored = plt.hist(initial_positions[:n_electrons,0],
+                                        600, normed=True)
         f = 0.1*np.sin(4.*np.pi*bins)
-        #print(sum(f))
         plt.plot(bins, f,linewidth=2, color='r')
 
-        # print('initial_positions: ', initial_positions)
-        # print('initial_velocities: ', initial_velocities)
-        # print('properties:' , properties)
     plt.show()

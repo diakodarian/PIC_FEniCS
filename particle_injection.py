@@ -1,6 +1,6 @@
 import numpy as np
 from initial_conditions import random_1d_positions, random_2d_positions
-from initial_conditions import random_velocities_new, random_velocities
+from initial_conditions import random_velocities
 from math import erf
 from particle_distribution import speed_distribution, hist_plot
 import sys
@@ -107,7 +107,7 @@ def inject_particles_2d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
         velocities = np.array(velocities)
     else:
         electron_velocities, ion_velocities =\
-        random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
+        random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
 
         velocities.extend(electron_velocities)
         velocities.extend(ion_velocities)
@@ -257,7 +257,7 @@ def inject_particles_3d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
         velocities = np.array(velocities)
     else:
         electron_velocities, ion_velocities =\
-        random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
+        random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
 
         velocities.extend(electron_velocities)
         velocities.extend(ion_velocities)
@@ -323,7 +323,7 @@ if __name__ == '__main__':
         sigma_i = [alpha_i, alpha_i, alpha_i]
 
         e_vel, i_vel =\
-        random_velocities_new(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
+        random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
 
         speed_distribution(e_vel, mu_e, sigma_e)
 
