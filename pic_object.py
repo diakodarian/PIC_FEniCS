@@ -239,7 +239,7 @@ count_e = []
 count_i = []
 for i in range(len(v_n)):
     count_e.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_e[0]))
-    count_i.append(num_particles(A_surface, dt, n_plasmas, v_n[i], sigma_i[0]))
+    count_i.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_i[0]))
 
 capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
 print("capacitance_sphere: ", capacitance_sphere)
@@ -308,11 +308,27 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #             The capacitance of the object
 #-------------------------------------------------------------------------------
 if with_object:
+    # Outer boundary conditions
+    cap_bc0 = DirichletBC(V, Constant(0.0), boundary_l1)
+    cap_bc1 = DirichletBC(V, Constant(0.0), boundary_l2)
+    cap_bc2 = DirichletBC(V, Constant(0.0), boundary_w1)
+    cap_bc3 = DirichletBC(V, Constant(0.0), boundary_w2)
+
+    cap_bcs_Dirichlet = [cap_bc0, cap_bc1, cap_bc2, cap_bc3]
+    if d == 3:
+        cap_bc4 = DirichletBC(V, Constant(0.0), boundary_h1)
+        cap_bc5 = DirichletBC(V, Constant(0.0), boundary_h2)
+
+        cap_bcs_Dirichlet.append(cap_bc4)
+        cap_bcs_Dirichlet.append(cap_bc5)
+
+    # Object boundary value
     c = Constant(1.0)
-    f = Function(V)
     bc_object = DirichletBC(V, c, facet_f, 1)
-    # boundary_values = bc_object.get_boundary_values()
-    phi = periodic_solver(f, V, solver, bc_object)
+
+    # Source term: 0 everywhere
+    f = Function(V)
+    phi = dirichlet_solver(f, V, cap_bcs_Dirichlet, bc_object)
     E = E_field(phi, W)
 
 test_surface_integral = False
