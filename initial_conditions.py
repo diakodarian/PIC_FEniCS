@@ -6,8 +6,8 @@ from dolfin import *
 import numpy as np
 from mpi4py import MPI as pyMPI
 from pynverse import inversefunc
-from LagrangianParticlesObject import RandomBox, RandomSphere
-from LagrangianParticlesObject import RandomCircle, RandomRectangle
+from LagrangianParticles import RandomBox, RandomSphere
+from LagrangianParticles import RandomCircle, RandomRectangle
 import sys
 
 comm = pyMPI.COMM_WORLD

@@ -1,5 +1,5 @@
 from __future__ import print_function
-from LagrangianParticlesObject import LagrangianParticles
+from LagrangianParticles import LagrangianParticles
 from Poisson_solver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
@@ -17,7 +17,7 @@ comm = pyMPI.COMM_WORLD
 #-------------------------------------------------------------------------------
 #                           Simulation
 #-------------------------------------------------------------------------------
-with_object = True
+with_object = False
 B_field = False
 with_drift = False
 
@@ -31,9 +31,12 @@ if with_object:
         periodic_field_solver = True # Periodic or Dirichlet bcs
 else:
     object_type = None
-    initial_type = 'Langmuir_waves'    # random or Langmuir_waves
-    periodic_field_solver = True     # Periodic or Dirichlet bcs
-
+    if B_field:
+        initial_type = 'random'    # random or Langmuir_waves
+        periodic_field_solver = False     # Periodic or Dirichlet bcs
+    else:
+        initial_type = 'Langmuir_waves'    # random or Langmuir_waves
+        periodic_field_solver = True     # Periodic or Dirichlet bcs
 
 
 #-------------------------------------------------------------------------------
