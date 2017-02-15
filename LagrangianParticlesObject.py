@@ -15,8 +15,7 @@ from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
 from particle_distribution import *
-from particle_injection import inject_particles_2d, inject_particles_3d
-#from initial_conditions import *
+#from particle_injection import inject_particles
 import sys
 
 # Disable printing
@@ -548,8 +547,8 @@ class LagrangianParticles:
                 if (x[2] > z0 and x[2] < z1 and np.dot(x[:2]-s0, x[:2]-s0) < r0**2):
                     particles_inside_object.append(i)
 
-        particles_inside_object = set(particles_inside_object)
-        particles_inside_object = list(particles_inside_object)
+        # particles_inside_object = set(particles_inside_object)
+        # particles_inside_object = list(particles_inside_object)
         particles_outside_domain = set(particles_outside_domain)
         particles_outside_domain  = list(particles_outside_domain)
 
@@ -565,33 +564,15 @@ class LagrangianParticles:
             for i in range(self.dim):
                 L[i] = self.mesh.coordinates()[:,i].min()
                 L[i+self.dim] = self.mesh.coordinates()[:,i].max()
-            if self.dim == 2:
-                pos, vel, n_electrons, n_ions = inject_particles_2d(L,
-                                                                self.count_e,
-                                                                self.count_i,
-                                                                self.mu_e,
-                                                                self.mu_i,
-                                                                self.sigma_e,
-                                                                self.sigma_i,
-                                                                self.dt)
 
-            if self.dim == 3:
-                pos, vel, n_electrons, n_ions = inject_particles_3d(L,
-                                                                self.count_e,
-                                                                self.count_i,
-                                                                self.mu_e,
-                                                                self.mu_i,
-                                                                self.sigma_e,
-                                                                self.sigma_i,
-                                                                self.dt)
-
-            p_properties = intialize_particle_properties(n_electrons,
-                                                       n_ions,
-                                                       self.w,
-                                                       self.q_e,
-                                                       self.q_i,
-                                                       self.m_e,
-                                                       self.m_i)
+            pos, vel, p_properties, n_electrons, n_ions = inject_particles(L,
+                                                            self.count_e,
+                                                            self.count_i,
+                                                            self.mu_e,
+                                                            self.mu_i,
+                                                            self.sigma_e,
+                                                            self.sigma_i,
+                                                            self.dt)
 
             self.add_particles(pos, vel, p_properties)
             print("Injected ", n_electrons, " electrons.")
@@ -850,12 +831,16 @@ class LagrangianParticles:
                     d = xy_ions.shape[1]
                     if d == 2:
                         for p1, p2 in map(None,xy_ions, xy_electrons):
-                            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
-                            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
+                            if not p1 is None:
+                                to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], 0.0))
+                            if not p2 is None:
+                                to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], 0.0))
                     elif d == 3:
                         for p1, p2 in map(None,xy_ions, xy_electrons):
-                            to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
-                            to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
+                            if not p1 is None:
+                                to_file.write("%s %f %f %f\n" %('C', p1[0], p1[1], p1[2]))
+                            if not p2 is None:
+                                to_file.write("%s %f %f %f\n" %('O', p2[0], p2[1], p2[2]))
 
 
 # Simple initializers for particle positions

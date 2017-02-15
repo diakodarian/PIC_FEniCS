@@ -1,8 +1,6 @@
 from __future__ import print_function
-
 from particle_distribution import speed_distribution
 from particle_distribution import hist_plot
-
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np

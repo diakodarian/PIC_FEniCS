@@ -1,6 +1,5 @@
 from __future__ import print_function
-from LagrangianParticlesObject import LagrangianParticles, RandomCircle
-from LagrangianParticlesObject import RandomRectangle, RandomBox, RandomSphere
+from LagrangianParticlesObject import LagrangianParticles
 from Poisson_solver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
@@ -15,11 +14,10 @@ import sys
 
 comm = pyMPI.COMM_WORLD
 
-print("aasdsfa")
 #-------------------------------------------------------------------------------
 #                           Simulation
 #-------------------------------------------------------------------------------
-with_object = False
+with_object = True
 B_field = False
 with_drift = False
 
@@ -27,7 +25,10 @@ if with_object:
     # Options spherical_ or cylindrical_
     object_type = 'spherical_object'
     initial_type = object_type
-    periodic_field_solver = False # Periodic or Dirichlet bcs
+    if B_field:
+        periodic_field_solver = False     # Periodic or Dirichlet bcs
+    else:
+        periodic_field_solver = True # Periodic or Dirichlet bcs
 else:
     object_type = None
     initial_type = 'Langmuir_waves'    # random or Langmuir_waves
@@ -442,7 +443,10 @@ for i, step in enumerate(range(tot_time)):
         phi = periodic_solver(rho, V, solver, bc_object)
         E = E_field(phi, W)
     else:
-        bc_object = DirichletBC(V, c, facet_f, 1)
+        if with_object:
+            bc_object = DirichletBC(V, c, facet_f, 1)
+        else:
+            bc_object = None
         phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
         E = E_field(phi, W)
 

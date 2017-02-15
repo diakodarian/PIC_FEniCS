@@ -1,6 +1,9 @@
+from __future__ import print_function
 import numpy as np
+from dolfin import *
 from initial_conditions import random_1d_positions, random_2d_positions
 from initial_conditions import random_velocities
+from initial_conditions import intialize_particle_properties
 from math import erf
 from particle_distribution import speed_distribution, hist_plot
 import sys
@@ -293,6 +296,38 @@ def inject_particles_3d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
 
     return pos, vel, n_electrons, n_ions
 
+def inject_particles(L,count_e,count_i,mu_e,mu_i,sigma_e,sigma_i,dt):
+    dim = len(L)/2
+    if dim == 2:
+        pos, vel, n_electrons, n_ions = inject_particles_2d(L,
+                                                            count_e,
+                                                            count_i,
+                                                            mu_e,
+                                                            mu_i,
+                                                            sigma_e,
+                                                            sigma_i,
+                                                            dt)
+
+    if dim == 3:
+        pos, vel, n_electrons, n_ions = inject_particles_3d(L,
+                                                            count_e,
+                                                            count_i,
+                                                            mu_e,
+                                                            mu_i,
+                                                            sigma_e,
+                                                            sigma_i,
+                                                            dt)
+
+    p_properties = intialize_particle_properties(n_electrons,
+                                                 n_ions,
+                                                 w,
+                                                 q_e,
+                                                 q_i,
+                                                 m_e,
+                                                 m_i)
+
+    return pos, vel, p_properties, n_electrons, n_ions
+
 if __name__ == '__main__':
     l1 = 0.
     l2 = 2*np.pi
@@ -355,17 +390,17 @@ if __name__ == '__main__':
             count_e.append(num_particles(A, dt, n_p, v_n[i], sigma_e[0]))
             count_i.append(num_particles(A, dt, n_p, v_n[i], sigma_i[0]))
 
-        print "nums: ", count_e, "   ", count_i
+        print("nums: ", count_e, "   ", count_i)
         count_e = [int(i) for i in count_e]
         count_i = [int(i) for i in count_i]
-        print "nums: ", count_e, "   ", count_i
+        print("nums: ", count_e, "   ", count_i)
 
         #count_e = [1, 2, 3, 4]
         #count_i = [2, 3, 4, 5]
         p, vel, n_electrons, n_ions = \
         inject_particles_2d(L2d, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt)
 
-        print np.sum(count_e), n_electrons, "      ", np.sum(count_i),n_ions
+        print(np.sum(count_e), n_electrons, "      ", np.sum(count_i),n_ions)
 
         import matplotlib.colors as colors
         import matplotlib.cm as cmx
@@ -376,7 +411,7 @@ if __name__ == '__main__':
         #n_electrons = np.sum(count_e)
         p_electrons = p[:n_electrons]
         p_ions = p[n_electrons:]
-        print p_electrons.shape, "  shapes: ", p_ions.shape
+        print(p_electrons.shape, "  shapes: ", p_ions.shape)
         ax.scatter(p_ions[::skip, 0], p_ions[::skip, 1],
                    label='ions',
                    marker='o',
@@ -425,10 +460,10 @@ if __name__ == '__main__':
             count_e.append(num_particles(A, dt, n_p, v_n[i], sigma_e[0]))
             count_i.append(num_particles(A, dt, n_p, v_n[i], sigma_i[0]))
 
-        print "nums: ", count_e, "   ", count_i
+        print("nums: ", count_e, "   ", count_i)
         count_e = [int(i) for i in count_e]
         count_i = [int(i) for i in count_i]
-        print "nums: ", count_e, "   ", count_i
+        print("nums: ", count_e, "   ", count_i)
 
         #count_e = [2,2,3,2,2,2]
         #count_i = [2,2,3,2,2,2]
