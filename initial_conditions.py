@@ -1,6 +1,5 @@
 from __future__ import print_function
-from LagrangianParticlesObject import RandomBox, RandomSphere
-from LagrangianParticlesObject import RandomCircle, RandomRectangle
+
 from particle_distribution import speed_distribution
 from particle_distribution import hist_plot
 
@@ -9,6 +8,8 @@ from dolfin import *
 import numpy as np
 from mpi4py import MPI as pyMPI
 from pynverse import inversefunc
+from LagrangianParticlesObject import RandomBox, RandomSphere
+from LagrangianParticlesObject import RandomCircle, RandomRectangle
 import sys
 
 comm = pyMPI.COMM_WORLD

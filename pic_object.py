@@ -15,11 +15,31 @@ import sys
 
 comm = pyMPI.COMM_WORLD
 
+print("aasdsfa")
+#-------------------------------------------------------------------------------
+#                           Simulation
+#-------------------------------------------------------------------------------
+with_object = False
+B_field = False
+with_drift = False
+
+if with_object:
+    # Options spherical_ or cylindrical_
+    object_type = 'spherical_object'
+    initial_type = object_type
+    periodic_field_solver = False # Periodic or Dirichlet bcs
+else:
+    object_type = None
+    initial_type = 'Langmuir_waves'    # random or Langmuir_waves
+    periodic_field_solver = True     # Periodic or Dirichlet bcs
+
+
+
 #-------------------------------------------------------------------------------
 #                           Mesh parameters
 #-------------------------------------------------------------------------------
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-d = 3              # Space dimension
+d = 2              # Space dimension
 l1 = 0.            # Start position x-axis
 l2 = 2.*np.pi      # End position x-axis
 w1 = 0.            # Start position y-axis
@@ -30,11 +50,6 @@ h2 = 2.*np.pi      # End position z-axis
 #-------------------------------------------------------------------------------
 #                       Upload mesh
 #-------------------------------------------------------------------------------
-with_object = True
-B_field = True
-with_drift = True
-
-object_type = 'spherical_object' # Options spherical_ or cylindrical_
 if with_object:
     if d == 2:
         mesh = Mesh("mesh/circle.xml")
@@ -74,7 +89,8 @@ if with_object:
         h0 = 1.0
         object_info = [x0, y0, r0, h0]
         L = [l1, w1, h1, l2, w2, h2]
-
+else:
+    object_info = None
 #-------------------------------------------------------------------------------
 #                       Mark facets
 #-------------------------------------------------------------------------------
@@ -103,7 +119,7 @@ if d == 3:
     boundary_h2.mark(facet_f, 7)
 
 #-------------------------------------------------------------------------------
-#                       Index of object vertices
+#                        Indices of object vertices
 #-------------------------------------------------------------------------------
 if with_object:
     itr_facet = SubsetIterator(facet_f, 1)
@@ -113,7 +129,8 @@ if with_object:
             object_vertices.add(v.index())
 
     object_vertices = list(object_vertices)
-
+else:
+    object_vertices  = None
 #-------------------------------------------------------------------------------
 #                       Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
@@ -232,21 +249,27 @@ if d == 3:
     v_n = np.array([v_n0,v_n1,v_n2,v_n3,v_n4,v_n5])
     A_surface = l2*w2
 
-B0_2 = np.linalg.norm(B0)         # Norm of the B-field
-E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
+if B_field:
+    B0_2 = np.linalg.norm(B0)         # Norm of the B-field
+    E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
 
-count_e = []
-count_i = []
-for i in range(len(v_n)):
-    count_e.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_e[0]))
-    count_i.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_i[0]))
+    count_e = []
+    count_i = []
+    for i in range(len(v_n)):
+        count_e.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_e[0]))
+        count_i.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_i[0]))
 
-capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
-print("capacitance_sphere: ", capacitance_sphere)
+else:
+    count_e = []
+    count_i = []
+
+if with_object:
+    capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
+    print("Theoretical capacitance for a sphere: ", capacitance_sphere)
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
-periodic_field_solver = False # Periodic or Dirichlet bcs
+
 if periodic_field_solver:
     V, VV, W = periodic_bcs(mesh, L)
 else:
@@ -280,7 +303,6 @@ else:
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
 random_domain = 'box' # Options: 'sphere' or 'box'
-initial_type = object_type
 initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i, mu_e, mu_i, sigma_e,
                    sigma_i, object_info, random_domain, initial_type)
@@ -301,7 +323,9 @@ solver.set_reuse_preconditioner(True)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
-lp = LagrangianParticles(VV, object_type, object_info)
+lp = LagrangianParticles(VV, object_type, object_info, B_field, count_e,
+                        count_i, mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i,
+                        m_e, m_i, dt)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
 #-------------------------------------------------------------------------------
@@ -331,6 +355,9 @@ if with_object:
     phi = dirichlet_solver(f, V, cap_bcs_Dirichlet, bc_object)
     E = E_field(phi, W)
 
+    File("Plots/phi_object.pvd") << phi
+    File("Plots/E_object.pvd") << E
+
 test_surface_integral = False
 if test_surface_integral == True:
     # Example 1:
@@ -353,7 +380,7 @@ if with_object:
     n = FacetNormal(mesh)
     capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
 
-    print("capacitance_sphere_numerical: ", capacitance_sphere_numerical)
+    print("Numerical capacitance of the object: ", capacitance_sphere_numerical)
 
 #-------------------------------------------------------------------------------
 #             Plot and write to file
@@ -406,7 +433,10 @@ for i, step in enumerate(range(tot_time)):
         c.assign(phi_object)
 
     if periodic_field_solver:
-        bc_object = DirichletBC(V, c, facet_f, 1)
+        if with_object:
+            bc_object = DirichletBC(V, c, facet_f, 1)
+        else:
+            bc_object = None
         # boundary_values = bc_object.get_boundary_values()
         # print("boundary_values: ", boundary_values)
         phi = periodic_solver(rho, V, solver, bc_object)

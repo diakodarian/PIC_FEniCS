@@ -15,6 +15,8 @@ from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
 from particle_distribution import *
+from particle_injection import inject_particles_2d, inject_particles_3d
+#from initial_conditions import *
 import sys
 
 # Disable printing
@@ -118,7 +120,8 @@ class CellParticleMap(dict):
 
 class LagrangianParticles:
     'Particles moved by the velocity field in V.'
-    def __init__(self, V, object_type, object_info):
+    def __init__(self, V, object_type, object_info, B_field, count_e, count_i,
+                mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i, m_e, m_i, dt):
         self.__debug = __DEBUG__
 
         self.V = V
@@ -129,6 +132,19 @@ class LagrangianParticles:
         # The object
         self.object_type = object_type
         self.object_info = object_info
+        self.B_field = B_field
+        self.count_e = count_e
+        self.count_i = count_i
+        self.mu_e = mu_e
+        self.mu_i = mu_i
+        self.sigma_e = sigma_e
+        self.sigma_i = sigma_i
+        self.w = w
+        self.q_e = q_e
+        self.q_i = q_i
+        self.m_e = m_e
+        self.m_i = m_i
+        self.dt = dt
         # Allocate some variables used to look up the velocity
         # Velocity is computed as U_i*basis_i where i is the dimension of
         # element function space, U are coefficients and basis_i are element
@@ -138,14 +154,6 @@ class LagrangianParticles:
         # interpolation. This updaea mounts to computing the basis matrix
         self.dim = self.mesh.topology().dim()
         self.mesh.init(0, self.dim)  # Vertex-to-cell connectivity for neighb. comput
-        # Time integration scheme:
-        # True: leapfrog method
-        # False: Boris algorithm
-        self.leap_frog = False
-        # Boundary conditions
-        # True: periodic bcs
-        # False: Dirichlet bcs
-        self.boundary_conditions = False
 
         self.element = V.dolfin_element()
         self.num_tensor_entries = 1
@@ -300,13 +308,14 @@ class LagrangianParticles:
             f.vector()[dof] = f_coefficients
 
         q_rho = 0.0
-        for cwp in self.particle_map.itervalues():
-            c = cwp.entities(0)
-            for i in range(len(c)):
-                for j in range(len(object_vertices)):
-                    if c[i] == object_vertices[j]:
-                        dof = v2d[c[i]]
-                        q_rho += f.vector()[dof][0]*cwp.volume()
+        if not self.object_type == None:
+            for cwp in self.particle_map.itervalues():
+                c = cwp.entities(0)
+                for i in range(len(c)):
+                    for j in range(len(object_vertices)):
+                        if c[i] == object_vertices[j]:
+                            dof = v2d[c[i]]
+                            q_rho += f.vector()[dof][0]*cwp.volume()
         return f, q_rho
 
     def current_density(self, J_e, J_i):
@@ -397,12 +406,11 @@ class LagrangianParticles:
                 if t_step == 0:
                     dt /= 2.
 
-                if self.leap_frog:
+                if not self.B_field:
                     # leap frog step
                     u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
                 else:
                     # Boris step
-                    assert not B == None
                     assert self.dim == 3
                     t = np.tan(particle.properties['q']*dt/(2.*particle.properties['m'])*B)
                     s = 2*t/(1+t[0]**2+t[1]**2+t[2]**2)
@@ -501,8 +509,6 @@ class LagrangianParticles:
         # What to do with escaped particles
         particles_inside_object = []
         particles_outside_domain = []
-        i_count = [0]*(2*self.dim)
-        e_count = [0]*(2*self.dim)
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
@@ -514,69 +520,13 @@ class LagrangianParticles:
                 l_max = self.mesh.coordinates()[:,dim].max()
                 l = l_max - l_min
 
-                if self.boundary_conditions:# periodic boundary conditions
+                if not self.B_field:# periodic boundary conditions
                     if x[dim] < l_min or x[dim] > l_max:
                         x[dim] = (x[dim]+abs(l_min))%l + l_min
                 else:# Dirichlet boundary conditions
-                    if x[dim] < l_min and np.sign(q) == 1.:
-                        i_count[2*dim] += 1
-                    elif x[dim] > l_max and np.sign(q) == 1.:
-                        i_count[2*dim+1] += 1
-                    if x[dim] < l_min and np.sign(q) == -1.:
-                        e_count[2*dim] += 1
-                    elif x[dim] > l_max and np.sign(q) == -1.:
-                        e_count[2*dim+1] += 1
-
-                    particles_outside_domain.append(i)
-
-        # add particles
-        if not self.boundary_conditions:
-            tot_count_e = np.sum(e_count)
-            tot_count_i = np.sum(i_count)
-            tot_count = tot_count_i + tot_count_e
-
-            l1 = self.mesh.coordinates()[:,0].min()
-            l2 = self.mesh.coordinates()[:,0].max()
-            w1 = self.mesh.coordinates()[:,1].min()
-            w2 = self.mesh.coordinates()[:,1].max()
-            Lx = [l1, l2]
-            Ly = [w1, w2]
-            if self.dim == 2:
-                e_pos_x1, e_pos_x2 =\
-                                random_1d_positions(Lx, count_e[2], count_e[3])
-                e_pos_y1, e_pos_y2 =\
-                                random_1d_positions(Ly, count_e[0], count_e[1])
-
-                i_pos_x1, i_pos_x2 =\
-                                random_1d_positions(Lx, count_i[2], count_i[3])
-                i_pos_y1, i_pos_y2 =\
-                                random_1d_positions(Ly, count_i[0], count_i[1])
-
-                x_e = np.empty((count_e[0]+count_e[1], self.dim))
-                for i in range(self.dim):
-                    x_e[i*count_e[0]:,0] = np.ones(count_e[i])*Lx[i]
-                    x_e[i*count_e[0]:,1] = e_pos_y[i*count_e[0]:i*count_e[0]+count_e[i]]
-
-                for i in range(self.dim):
-                    y_e[i*count_e[2]:,1] = np.ones(count_e[i+2])*Ly[i]
-                    y_e[i*count_e[2]:,0] = e_pos_x[i*count_e[2]:i*count_e[2]+count_e[i+2]]
-
-                x_e_max = np.empty((count_e[1], self.dim))
-                x_e_max[:,0] = np.ones(count_e[1])*l2
-                x_e_max[:,1] = e_pos_y2
-
-            elif self.dim == 3:
-                h1 = self.mesh.coordinates()[:,2].min()
-                h2 = self.mesh.coordinates()[:,2].max()
-                Lz = [h1, h2]
-                e_pos_z1, e_pos_z2 =\
-                                random_2d_positions(Lz, count_e[2], count_e[3])
-                e_pos_y1, e_pos_y2 =\
-                                random_1d_positions(Ly, count_e[0], count_e[1])
-                initial_electron_positions, initial_ion_positions =\
-                    random_2d_positions(L, count_e, count_i, 'box')
-
-
+                    if x[dim] < l_min or x[dim] > l_max:
+                        particles_outside_domain.append(i)
+                    # add particles
 
             # If the particle hits the object remove it
             if self.object_type == 'spherical_object':
@@ -598,10 +548,58 @@ class LagrangianParticles:
                 if (x[2] > z0 and x[2] < z1 and np.dot(x[:2]-s0, x[:2]-s0) < r0**2):
                     particles_inside_object.append(i)
 
-        for i in reversed(particles_inside_object):
-            p = list_of_escaped_particles[i]
-            object_charge += p.properties['q']
-            list_of_escaped_particles.remove(p)
+        particles_inside_object = set(particles_inside_object)
+        particles_inside_object = list(particles_inside_object)
+        particles_outside_domain = set(particles_outside_domain)
+        particles_outside_domain  = list(particles_outside_domain)
+
+        if not self.object_type == None:
+            # Remove particles inside the object and accumulate the charge
+            for i in reversed(particles_inside_object):
+                p = list_of_escaped_particles[i]
+                object_charge += p.properties['q']
+                list_of_escaped_particles.remove(p)
+        if self.B_field:
+            # Inject new particles at the boundaries
+            L = [0]*2*self.dim
+            for i in range(self.dim):
+                L[i] = self.mesh.coordinates()[:,i].min()
+                L[i+self.dim] = self.mesh.coordinates()[:,i].max()
+            if self.dim == 2:
+                pos, vel, n_electrons, n_ions = inject_particles_2d(L,
+                                                                self.count_e,
+                                                                self.count_i,
+                                                                self.mu_e,
+                                                                self.mu_i,
+                                                                self.sigma_e,
+                                                                self.sigma_i,
+                                                                self.dt)
+
+            if self.dim == 3:
+                pos, vel, n_electrons, n_ions = inject_particles_3d(L,
+                                                                self.count_e,
+                                                                self.count_i,
+                                                                self.mu_e,
+                                                                self.mu_i,
+                                                                self.sigma_e,
+                                                                self.sigma_i,
+                                                                self.dt)
+
+            p_properties = intialize_particle_properties(n_electrons,
+                                                       n_ions,
+                                                       self.w,
+                                                       self.q_e,
+                                                       self.q_i,
+                                                       self.m_e,
+                                                       self.m_i)
+
+            self.add_particles(pos, vel, p_properties)
+            print("Injected ", n_electrons, " electrons.")
+            print("Injected ", n_ions, " ions.")
+            # Remove particles exiting domain
+            for i in reversed(particles_outside_domain):
+                p = list_of_escaped_particles[i]
+                list_of_escaped_particles.remove(p)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
