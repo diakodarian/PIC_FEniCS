@@ -1,11 +1,4 @@
 *.ipynb
-LagrangianParticles.py
 *.pyc
-sandbox.py
-Poisson1d_periodic.py
-Poisson_Dirichlet.py
-Poisson_Dirichlet_Periodic.py
-Poisson_grad.py
-Poisson_periodic.py
-demo_LagrangianParticles.py
 .ipynb_checkpoints/
+*.png
