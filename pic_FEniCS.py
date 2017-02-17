@@ -17,9 +17,9 @@ comm = pyMPI.COMM_WORLD
 #-------------------------------------------------------------------------------
 #                           Simulation
 #-------------------------------------------------------------------------------
-with_object = False
-B_field = False
-with_drift = False
+with_object = True
+B_field = True
+with_drift = True
 
 if with_object:
     # Options spherical_ or cylindrical_
@@ -43,7 +43,7 @@ else:
 #                           Mesh parameters
 #-------------------------------------------------------------------------------
 # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-d = 2              # Space dimension
+d = 3              # Space dimension
 l1 = 0.            # Start position x-axis
 l2 = 2.*np.pi      # End position x-axis
 w1 = 0.            # Start position y-axis
@@ -167,8 +167,8 @@ dt = 0.251327             # Time step
 tot_volume = assemble(1*dx(mesh)) # Volume of simulation domain
 
 n_cells = mesh.num_cells()    # Number of cells
-N_e = n_pr_cell*n_cells       # Number of electrons
-N_i = n_pr_cell*n_cells       # Number of ions
+N_e = 5000#n_pr_cell*n_cells       # Number of electrons
+N_i = 5000#n_pr_cell*n_cells       # Number of ions
 num_species = 2               # Number of species
 #-------------------------------------------------------------------------------
 #                       Physical parameters
@@ -202,13 +202,13 @@ if d == 2:
     n2 = np.array([0, 1])
     n3 = np.array([0, -1])
     if B_field:
-        B0 = np.array([1., 0.])     # Uniform background magnetic field
+        B0 = np.array([0.2, 0.])     # Uniform background magnetic field
     else:
         B0 = np.array([0., 0.])
     if with_drift:
-        vd = np.array([1.5, 0.])  # Drift velocity of the plasma particles
-        mu_e = [1.5,0.]
-        mu_i = [1.5,0.]
+        vd = np.array([0.4, 0.])  # Drift velocity of the plasma particles
+        mu_e = [0.4,0.]
+        mu_i = [0.4,0.]
     else:
         vd = np.array([0., 0.])
         mu_e = [0.,0.]
@@ -231,13 +231,13 @@ if d == 3:
     n4 = np.array([0, 0, 1])
     n5 = np.array([0, 0, -1])
     if B_field:
-        B0 = np.array([1., 0.,0.])     # Uniform background magnetic field
+        B0 = np.array([0.2, 0.,0.])     # Uniform background magnetic field
     else:
         B0 = np.array([0., 0.,0.])
     if with_drift:
-        vd = np.array([1.5, 0.,0.])  # Drift velocity of the plasma particles
-        mu_e = [1.5,0.,0.]
-        mu_i = [1.5,0.,0.]
+        vd = np.array([0.4, 0.,0.])  # Drift velocity of the plasma particles
+        mu_e = [0.4,0.,0.]
+        mu_i = [0.4,0.,0.]
     else:
         vd = np.array([0., 0.,0.])
         mu_e = [0.,0.,0.]
@@ -263,10 +263,14 @@ if B_field:
         count_e.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_e[0]))
         count_i.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_i[0]))
 
+    count_e = [int(i/n_pr_super_particle) for i in count_e]
+    count_i = [int(i/n_pr_super_particle) for i in count_i]
+
 else:
     count_e = []
     count_i = []
 
+print("counts: ", count_e, count_i)
 if with_object:
     capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
     print("Theoretical capacitance for a sphere: ", capacitance_sphere)

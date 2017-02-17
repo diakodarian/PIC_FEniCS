@@ -15,7 +15,7 @@ from mpi4py import MPI as pyMPI
 from collections import defaultdict
 from itertools import product
 from particle_distribution import *
-#from particle_injection import inject_particles
+from particle_injection import inject_particles
 import sys
 
 # Disable printing
@@ -524,6 +524,7 @@ class LagrangianParticles:
                         x[dim] = (x[dim]+abs(l_min))%l + l_min
                 else:# Dirichlet boundary conditions
                     if x[dim] < l_min or x[dim] > l_max:
+                        print("dims: ", l_min, l_max, x[dim])
                         particles_outside_domain.append(i)
                     # add particles
 
@@ -552,6 +553,8 @@ class LagrangianParticles:
         particles_outside_domain = set(particles_outside_domain)
         particles_outside_domain  = list(particles_outside_domain)
 
+        print("particles inside object: ", particles_inside_object)
+        print("particles_outside_domain: ", particles_outside_domain)
         if not self.object_type == None:
             # Remove particles inside the object and accumulate the charge
             for i in reversed(particles_inside_object):
@@ -572,9 +575,14 @@ class LagrangianParticles:
                                                             self.mu_i,
                                                             self.sigma_e,
                                                             self.sigma_i,
-                                                            self.dt)
-
-            self.add_particles(pos, vel, p_properties)
+                                                            self.dt,
+                                                            self.w,
+                                                            self.q_e,
+                                                            self.q_i,
+                                                            self.m_e,
+                                                            self.m_i)
+            if ((n_electrons+n_ions) !=0):
+                self.add_particles(pos, vel, p_properties)
             print("Injected ", n_electrons, " electrons.")
             print("Injected ", n_ions, " ions.")
             # Remove particles exiting domain
@@ -709,20 +717,23 @@ class LagrangianParticles:
                 # Plot only if there is something to plot
                 ions = received_ions[proc]
                 electrons = received_electrons[proc]
-                if (len(ions) > 0 or len(electrons) > 0):
+                print("plot ions: ", ions)
+                print("plot electron: ", electrons)
+                if len(ions) > 0 :
                     xy_ions = np.array(ions)
-                    xy_electrons = np.array(electrons)
                     ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
                                label='ions',
                                marker='o',
                                c='r',
                                edgecolor='none')
+                if len(electrons) > 0:
+                    xy_electrons = np.array(electrons)
                     ax.scatter(xy_electrons[::skip, 0], xy_electrons[::skip, 1],
                                label='electrons',
                                marker = 'o',
                                c='b',
                                edgecolor='none')
-            ax.legend(loc='best')
+            ax.legend(loc='best', bbox_to_anchor=(1.01, 0.99))
             ax.axis([l_min, l_max, l_min, l_max])
 
     def particle_distribution(self):

@@ -1,12 +1,6 @@
 from __future__ import print_function
 import numpy as np
 from dolfin import *
-from initial_conditions import random_1d_positions, random_2d_positions
-from initial_conditions import random_velocities
-from initial_conditions import intialize_particle_properties
-from math import erf
-from particle_distribution import speed_distribution, hist_plot
-import sys
 
 def num_particles(A, dt, n_p, v_n, alpha):
     """
@@ -14,6 +8,7 @@ def num_particles(A, dt, n_p, v_n, alpha):
     through a surface of the outer boundary with area, A, based on a drifting
     Maxwellian distribution, at each time step.
     """
+    from math import erf
     N = n_p*A*dt*( (alpha/(np.sqrt(2*np.pi)) * np.exp(-v_n**2/(2*alpha**2))) +\
                     0.5*v_n*(1. + erf(v_n/(alpha*np.sqrt(2)))) )
     return N
@@ -29,6 +24,10 @@ def inject_particles_2d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
     sigma_: Standard deviation of particle distribution
     dt    : time step
     """
+
+    from initial_conditions import random_1d_positions
+    from initial_conditions import random_velocities
+
     l1 = L[0]
     w1 = L[1]
     l2 = L[2]
@@ -115,9 +114,9 @@ def inject_particles_2d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
         velocities.extend(electron_velocities)
         velocities.extend(ion_velocities)
         velocities = np.array(velocities)
-        w = np.random.rand(len(velocities))
-        p_positions[:,0]  += dt*w*velocities[:,0]
-        p_positions[:,1]  += dt*w*velocities[:,1]
+        w_random = np.random.rand(len(velocities))
+        p_positions[:,0]  += dt*w_random*velocities[:,0]
+        p_positions[:,1]  += dt*w_random*velocities[:,1]
 
         index_outside = []
         for i in range(len(p_positions)):
@@ -156,6 +155,9 @@ def inject_particles_3d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
     sigma_: Standard deviation of particle distribution
     dt    : time step
     """
+    from initial_conditions import random_2d_positions
+    from initial_conditions import random_velocities
+
     l1 = L[0]
     w1 = L[1]
     h1 = L[2]
@@ -266,10 +268,12 @@ def inject_particles_3d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
         velocities.extend(ion_velocities)
         velocities = np.array(velocities)
 
-        w = np.random.rand(len(velocities))
-        p_positions[:,0]  += dt*w*velocities[:,0]
-        p_positions[:,1]  += dt*w*velocities[:,1]
-        p_positions[:,2]  += dt*w*velocities[:,2]
+        w_random = np.random.rand(len(velocities))
+
+        if len(p_positions) != 0:
+            p_positions[:,0]  += dt*w_random*velocities[:,0]
+            p_positions[:,1]  += dt*w_random*velocities[:,1]
+            p_positions[:,2]  += dt*w_random*velocities[:,2]
 
         index_outside = []
         for i in range(len(p_positions)):
@@ -296,7 +300,12 @@ def inject_particles_3d(L, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt):
 
     return pos, vel, n_electrons, n_ions
 
-def inject_particles(L,count_e,count_i,mu_e,mu_i,sigma_e,sigma_i,dt):
+def inject_particles(L, count_e, count_i,
+                     mu_e, mu_i, sigma_e, sigma_i,
+                     dt, w, q_e, q_i, m_e, m_i):
+
+    from initial_conditions import intialize_particle_properties
+
     dim = len(L)/2
     if dim == 2:
         pos, vel, n_electrons, n_ions = inject_particles_2d(L,
@@ -329,6 +338,10 @@ def inject_particles(L,count_e,count_i,mu_e,mu_i,sigma_e,sigma_i,dt):
     return pos, vel, p_properties, n_electrons, n_ions
 
 if __name__ == '__main__':
+
+    from particle_distribution import speed_distribution, hist_plot
+    import sys
+
     l1 = 0.
     l2 = 2*np.pi
     w1 = 0.
