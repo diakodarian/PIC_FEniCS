@@ -161,14 +161,14 @@ if with_object:
 #-------------------------------------------------------------------------------
 n_pr_cell = 8             # Number of particels per cell
 n_pr_super_particle = 8   # Number of particles per super particle
-tot_time = 20             # Total simulation time
+tot_time = 80             # Total simulation time
 dt = 0.251327             # Time step
 
 tot_volume = assemble(1*dx(mesh)) # Volume of simulation domain
 
 n_cells = mesh.num_cells()    # Number of cells
-N_e = 5000#n_pr_cell*n_cells       # Number of electrons
-N_i = 5000#n_pr_cell*n_cells       # Number of ions
+N_e = 40#n_pr_cell*n_cells       # Number of electrons
+N_i = 40#n_pr_cell*n_cells       # Number of ions
 num_species = 2               # Number of species
 #-------------------------------------------------------------------------------
 #                       Physical parameters
@@ -466,7 +466,7 @@ for i, step in enumerate(range(tot_time)):
 
     tot_n, n_proc = lp.total_number_of_particles()
     print("total_number_of_particles: ", tot_n)
-    print("   ")
+
 
     Ek.append(info[2])
     energy = lp.potential_energy(phi)
@@ -483,6 +483,7 @@ for i, step in enumerate(range(tot_time)):
     if (save and step%1==0): plt.savefig('img%s.png' % str(step).zfill(4))
 
     fig.clf()
+    print("   ")
 
 
 Et = [i + j for i, j in zip(Ep, Ek)]   # Total energy

@@ -553,13 +553,22 @@ class LagrangianParticles:
         particles_outside_domain = set(particles_outside_domain)
         particles_outside_domain  = list(particles_outside_domain)
 
+        particles_to_be_removed = []
+        particles_to_be_removed.extend(particles_inside_object)
+        particles_to_be_removed.extend(particles_outside_domain)
+        particles_to_be_removed = set(particles_to_be_removed)
+        particles_to_be_removed = list(particles_to_be_removed)
+
         print("particles inside object: ", particles_inside_object)
         print("particles_outside_domain: ", particles_outside_domain)
-        if not self.object_type == None:
+        print("particles_to_be_removed: ", particles_to_be_removed)
+        print("list_of_escaped_particles: ", list_of_escaped_particles)
+        if (not self.object_type == None or self.B_field):
             # Remove particles inside the object and accumulate the charge
-            for i in reversed(particles_inside_object):
+            for i in reversed(particles_to_be_removed):
                 p = list_of_escaped_particles[i]
-                object_charge += p.properties['q']
+                if i in particles_inside_object:
+                    object_charge += p.properties['q']
                 list_of_escaped_particles.remove(p)
         if self.B_field:
             # Inject new particles at the boundaries
@@ -585,10 +594,10 @@ class LagrangianParticles:
                 self.add_particles(pos, vel, p_properties)
             print("Injected ", n_electrons, " electrons.")
             print("Injected ", n_ions, " ions.")
-            # Remove particles exiting domain
-            for i in reversed(particles_outside_domain):
-                p = list_of_escaped_particles[i]
-                list_of_escaped_particles.remove(p)
+            # Remove particles exiting domain or hitting the object
+            # for i in reversed(particles_outside_domain):
+            #     p = list_of_escaped_particles[i]
+            #     list_of_escaped_particles.remove(p)
         # Put all travelling particles on all processes, then perform new search
         travelling_particles = comm.bcast(list_of_escaped_particles, root=0)
         travelling_particles_velocity = comm.bcast(list_of_escaped_particles_velocity, root=0)
@@ -717,8 +726,8 @@ class LagrangianParticles:
                 # Plot only if there is something to plot
                 ions = received_ions[proc]
                 electrons = received_electrons[proc]
-                print("plot ions: ", ions)
-                print("plot electron: ", electrons)
+                print("plot ions: ", len(ions))
+                print("plot electron: ", len(electrons))
                 if len(ions) > 0 :
                     xy_ions = np.array(ions)
                     ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],
@@ -733,7 +742,7 @@ class LagrangianParticles:
                                marker = 'o',
                                c='b',
                                edgecolor='none')
-            ax.legend(loc='best', bbox_to_anchor=(1.01, 0.99))
+            ax.legend(bbox_to_anchor=(1.09, 0.99))
             ax.axis([l_min, l_max, l_min, l_max])
 
     def particle_distribution(self):
