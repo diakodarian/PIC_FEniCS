@@ -412,7 +412,7 @@ class LagrangianParticles:
                     # Boris step
                     assert self.dim == 3
                     t = np.tan(particle.properties['q']*dt/(2.*particle.properties['m'])*B)
-                    s = 2*t/(1+t[0]**2+t[1]**2+t[2]**2)
+                    s = 2.*t/(1.+t[0]**2+t[1]**2+t[2]**2)
                     v_minus = u + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)
                     v_minus_cross_t = np.cross(v_minus, t)
                     v_prime = v_minus + v_minus_cross_t
@@ -524,7 +524,7 @@ class LagrangianParticles:
                         x[dim] = (x[dim]+abs(l_min))%l + l_min
                 else:# Dirichlet boundary conditions
                     if x[dim] < l_min or x[dim] > l_max:
-                        print("dims: ", l_min, l_max, x[dim])
+                        # print("dims: ", l_min, l_max, x[dim])
                         particles_outside_domain.append(i)
                     # add particles
 
@@ -548,8 +548,6 @@ class LagrangianParticles:
                 if (x[2] > z0 and x[2] < z1 and np.dot(x[:2]-s0, x[:2]-s0) < r0**2):
                     particles_inside_object.append(i)
 
-        # particles_inside_object = set(particles_inside_object)
-        # particles_inside_object = list(particles_inside_object)
         particles_outside_domain = set(particles_outside_domain)
         particles_outside_domain  = list(particles_outside_domain)
 
@@ -559,10 +557,10 @@ class LagrangianParticles:
         particles_to_be_removed = set(particles_to_be_removed)
         particles_to_be_removed = list(particles_to_be_removed)
 
-        print("particles inside object: ", particles_inside_object)
-        print("particles_outside_domain: ", particles_outside_domain)
-        print("particles_to_be_removed: ", particles_to_be_removed)
-        print("list_of_escaped_particles: ", list_of_escaped_particles)
+        print("particles inside object: ", len(particles_inside_object))
+        print("particles_outside_domain: ", len(particles_outside_domain))
+        print("particles_to_be_removed: ", len(particles_to_be_removed))
+        # print("list_of_escaped_particles: ", list_of_escaped_particles)
         if (not self.object_type == None or self.B_field):
             # Remove particles inside the object and accumulate the charge
             for i in reversed(particles_to_be_removed):
@@ -726,8 +724,8 @@ class LagrangianParticles:
                 # Plot only if there is something to plot
                 ions = received_ions[proc]
                 electrons = received_electrons[proc]
-                print("plot ions: ", len(ions))
-                print("plot electron: ", len(electrons))
+                # print("plot ions: ", len(ions))
+                # print("plot electron: ", len(electrons))
                 if len(ions) > 0 :
                     xy_ions = np.array(ions)
                     ax.scatter(xy_ions[::skip, 0], xy_ions[::skip, 1],

@@ -59,7 +59,8 @@ def dirichlet_solver(f, V, bcs, bc_object=None):
     if bc_object == None:
         solve(a == L, phi, bcs)
     else:
-        bcs.append(bc_object)
+        for i in range(len(bc_object)):
+            bcs.append(bc_object[i])
 
         A = assemble(a)
         b = assemble(L)
