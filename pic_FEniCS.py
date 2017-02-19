@@ -433,9 +433,10 @@ if with_object:
             capacitance[i,j] = -epsilon_0*assemble(inner(E_object[j], -1*n)*ds(i+1))
 
     #capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
+    inv_capacitance = np.linalg.inv(capacitance)
+    print("Capacitance matrix: ", capacitance)
+    print("Inverse of capacitance: ", inv_capacitance)
 
-    print("Numerical capacitance of the object: ", capacitance)
-sys.exit()
 #-------------------------------------------------------------------------------
 #             Plot and write to file
 #-------------------------------------------------------------------------------
@@ -465,9 +466,14 @@ save = True
 Ek = []              # List to store kinetic energy
 Ep = []              # List to store potential energy
 t = []               # List to store time
-q_object = 0.0       # Initial object charge
-c = Constant(0.0)    # Initial object charge
 
+# Initial object charge
+c = []
+q_object = []
+for i in range(n_components):
+    c.append(Constant(0.0))
+    q_object.append(0.0)
+# Current density
 J_e = Function(VV)
 J_i = Function(VV)
 
@@ -483,12 +489,17 @@ for i, step in enumerate(range(tot_time)):
 
     # Objetc boundary condition
     if with_object:
-        phi_object = (q_object-q_rho)/capacitance_sphere_numerical
-        c.assign(phi_object)
+        for ii in range(n_components):
+            phi_object = 0.0
+            for j in range(n_components):
+                phi_object += (q_object[j]-q_rho[j])*inv_capacitance[ii,j]
+            c[ii].assign(phi_object)
 
     if periodic_field_solver:
         if with_object:
-            bc_object = DirichletBC(V, c, facet_f, 1)
+            bc_object = []
+            for j in range(n_components):
+                bc_object.append(DirichletBC(V, c[j], facet_f, j+1))
         else:
             bc_object = None
         # boundary_values = bc_object.get_boundary_values()
@@ -497,7 +508,9 @@ for i, step in enumerate(range(tot_time)):
         E = E_field(phi, W)
     else:
         if with_object:
-            bc_object = DirichletBC(V, c, facet_f, 1)
+            bc_object = []
+            for j in range(n_components):
+                bc_object.append(DirichletBC(V, c[j], facet_f, j+1))
         else:
             bc_object = None
         phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
