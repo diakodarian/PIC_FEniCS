@@ -282,9 +282,11 @@ class LagrangianParticles:
                 e_k += 0.5*particle.properties['m']*np.sum(np.asarray(particle.velocity)**2)
         return e_k
 
-    def charge_density(self, f, object_vertices = None):
+    def charge_density(self, f, components_vertices):
         'Particle charge weigthed at nodes'
         v2d = df.vertex_to_dof_map(f.function_space())
+        n_components = len(components_vertices)
+        q_rho = [0.0]*n_components
 
         for cwp in self.particle_map.itervalues():
             f_coefficients = np.zeros(f.function_space().dolfin_element().space_dimension())
@@ -306,15 +308,13 @@ class LagrangianParticles:
                 f_coefficients += particle.properties['q']*f_basis_matrix/cwp.volume()
             f.vector()[dof] = f_coefficients
 
-        q_rho = 0.0
-        if not self.object_type == None:
-            for cwp in self.particle_map.itervalues():
-                c = cwp.entities(0)
+            if not self.object_type == None:
                 for i in range(len(c)):
-                    for j in range(len(object_vertices)):
-                        if c[i] == object_vertices[j]:
-                            dof = v2d[c[i]]
-                            q_rho += f.vector()[dof][0]*cwp.volume()
+                    for k in range(n_components):
+                        for j in range(len(components_vertices[k])):
+                            if c[i] == components_vertices[k][j]:
+                                dof = v2d[c[i]]
+                                q_rho[k] += f.vector()[dof][0]*cwp.volume()
         return f, q_rho
 
     def current_density(self, J_e, J_i):
@@ -508,6 +508,8 @@ class LagrangianParticles:
         # What to do with escaped particles
         particles_inside_object = []
         particles_outside_domain = []
+        if self.object_type == 'multi_components':
+            particles_inside_object1 = []
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
             x = p.position
@@ -524,11 +526,24 @@ class LagrangianParticles:
                         x[dim] = (x[dim]+abs(l_min))%l + l_min
                 else:# Dirichlet boundary conditions
                     if x[dim] < l_min or x[dim] > l_max:
-                        # print("dims: ", l_min, l_max, x[dim])
                         particles_outside_domain.append(i)
-                    # add particles
 
             # If the particle hits the object remove it
+            if self.object_type == 'multi_components':
+                if d == 2:
+                    s0 = [self.object_info[0], self.object_info[1]]
+                    r0 = self.object_info[2]
+                    s1 = [self.object_info[3], self.object_info[4]]
+                    r1 = self.object_info[5]
+                if d == 3:
+                    s0 = [self.object_info[0], self.object_info[1], self.object_info[2]]
+                    r0 = self.object_info[3]
+                    s1 = [self.object_info[4], self.object_info[5], self.object_info[6]]
+                    r1 = self.object_info[7]
+                if np.dot(x-s0, x-s0) < r0**2:
+                    particles_inside_object.append(i)
+                if np.dot(x-s1, x-s1) < r1**2:
+                    particles_inside_object1.append(i)
             if self.object_type == 'spherical_object':
                 if d == 2:
                     s0 = [self.object_info[0], self.object_info[1]]
@@ -552,6 +567,9 @@ class LagrangianParticles:
         particles_outside_domain  = list(particles_outside_domain)
 
         particles_to_be_removed = []
+        if self.object_type == 'multi_components':
+            print("particles inside object 1: ", len(particles_inside_object1))
+            particles_to_be_removed.extend(particles_inside_object1)
         particles_to_be_removed.extend(particles_inside_object)
         particles_to_be_removed.extend(particles_outside_domain)
         particles_to_be_removed = set(particles_to_be_removed)
@@ -566,7 +584,9 @@ class LagrangianParticles:
             for i in reversed(particles_to_be_removed):
                 p = list_of_escaped_particles[i]
                 if i in particles_inside_object:
-                    object_charge += p.properties['q']
+                    object_charge[1] += p.properties['q']
+                if i in particles_inside_object1:
+                    object_charge[0] += p.properties['q']
                 list_of_escaped_particles.remove(p)
         if self.B_field:
             # Inject new particles at the boundaries

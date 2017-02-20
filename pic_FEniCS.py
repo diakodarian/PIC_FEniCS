@@ -19,12 +19,12 @@ comm = pyMPI.COMM_WORLD
 #                           Simulation
 #-------------------------------------------------------------------------------
 with_object = True
-B_field = True
+B_field = False
 with_drift = True
 
 if with_object:
-    # Options spherical_ or cylindrical_
-    object_type = 'spherical_object'
+    # Options spherical_ or cylindrical_ or multi_components
+    object_type = 'multi_components'
     initial_type = object_type
     if B_field:
         periodic_field_solver = False     # Periodic or Dirichlet bcs
@@ -78,10 +78,24 @@ else:
         L = [l1, w1, h1, l2, w2, h2]
         divisions = [32,32,32]
         mesh = HyperCube(L, divisions)
+
+D = mesh.topology().dim()
+mesh.init(D-1,D) # Build connectivity between facets and cells
 #-------------------------------------------------------------------------------
 #                       Create the object
 #-------------------------------------------------------------------------------
 if with_object:
+    if object_type == 'multi_components':
+        r0 = 0.5; r1 = 0.5;
+        x0 = np.pi; x1 = np.pi;
+        y0 = np.pi; y1 = np.pi + 2*r1;
+        z0 = np.pi; z1 = np.pi;
+        if d == 2:
+            object_info = [x0, y0, r0, x1, y1, r1]
+            L = [l1, w1, l2, w2]
+        elif d == 3:
+            object_info = [x0, y0, z0, r0, x1, y1, z1, r1]
+            L = [l1, w1, h1, l2, w2, h2]
     if object_type == 'spherical_object':
         x0 = np.pi
         y0 = np.pi
@@ -140,15 +154,29 @@ if d == 3:
 #                        Indices of object vertices
 #-------------------------------------------------------------------------------
 if with_object:
-    itr_facet = SubsetIterator(facet_f, 1)
-    object_vertices = set()
-    for f in itr_facet:
-        for v in vertices(f):
-            object_vertices.add(v.index())
+    components_cells = []
+    for i in range(n_components):
+        itr_facet = SubsetIterator(facet_f, i+1)
+        object_adjacent_cells = []
+        for f in itr_facet:
+            object_adjacent_cells.append(f.entities(D)[0])
+        components_cells.append(object_adjacent_cells)
 
-    object_vertices = list(object_vertices)
+if with_object:
+    components_vertices = []
+    for i in range(n_components):
+        itr_facet = SubsetIterator(facet_f, i+1)
+        object_vertices = set()
+        for f in itr_facet:
+            for v in vertices(f):
+                object_vertices.add(v.index())
+
+        object_vertices = list(object_vertices)
+        components_vertices.append(object_vertices)
 else:
-    object_vertices  = None
+    components_vertices = None
+
+
 #-------------------------------------------------------------------------------
 #                       Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
@@ -360,10 +388,10 @@ solver.set_reuse_preconditioner(True)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
-# lp = LagrangianParticles(VV, object_type, object_info, B_field, count_e,
-#                         count_i, mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i,
-#                         m_e, m_i, dt)
-# lp.add_particles(initial_positions, initial_velocities, properties)
+lp = LagrangianParticles(VV, object_type, object_info, B_field, count_e,
+                        count_i, mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i,
+                        m_e, m_i, dt)
+lp.add_particles(initial_positions, initial_velocities, properties)
 
 #-------------------------------------------------------------------------------
 #             The capacitance matrix of the object
@@ -383,7 +411,7 @@ if with_object:
         cap_bcs_Dirichlet.append(cap_bc4)
         cap_bcs_Dirichlet.append(cap_bc5)
 
-    # Solve Laplace equation for each component
+    # Solve Laplace equation for each electrical component
     E_object = []
     for i in range(n_components):
         bc_object = []
@@ -434,8 +462,17 @@ if with_object:
 
     #capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
     inv_capacitance = np.linalg.inv(capacitance)
-    print("Capacitance matrix: ", capacitance)
-    print("Inverse of capacitance: ", inv_capacitance)
+    print("")
+    print("Capacitance matrix: ")
+    print("")
+    print(capacitance)
+    print("-------------------------")
+    print("")
+    print("Inverse of capacitance matrix: ")
+    print("")
+    print(inv_capacitance)
+    print("-------------------------")
+    print("")
 
 #-------------------------------------------------------------------------------
 #             Plot and write to file
@@ -484,35 +521,28 @@ for i, step in enumerate(range(tot_time)):
     if comm.Get_rank() == 0:
         print("t: ", step)
 
+    # Source term (charge density)
     f = Function(V)
-    rho, q_rho = lp.charge_density(f, object_vertices)
+    rho, q_rho = lp.charge_density(f, components_vertices)
 
     # Objetc boundary condition
     if with_object:
-        for ii in range(n_components):
+        bc_object = []
+        for k in range(n_components):
             phi_object = 0.0
             for j in range(n_components):
-                phi_object += (q_object[j]-q_rho[j])*inv_capacitance[ii,j]
-            c[ii].assign(phi_object)
-
+                phi_object += (q_object[j]-q_rho[j])*inv_capacitance[k,j]
+            c[k].assign(phi_object)
+            bc_object.append(DirichletBC(V, c[k], facet_f, k+1))
+    else:
+        bc_object = None
+    # Solver
     if periodic_field_solver:
-        if with_object:
-            bc_object = []
-            for j in range(n_components):
-                bc_object.append(DirichletBC(V, c[j], facet_f, j+1))
-        else:
-            bc_object = None
         # boundary_values = bc_object.get_boundary_values()
         # print("boundary_values: ", boundary_values)
         phi = periodic_solver(rho, V, solver, bc_object)
         E = E_field(phi, W)
     else:
-        if with_object:
-            bc_object = []
-            for j in range(n_components):
-                bc_object.append(DirichletBC(V, c[j], facet_f, j+1))
-        else:
-            bc_object = None
         phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
         E = E_field(phi, W)
 
