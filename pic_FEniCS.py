@@ -60,8 +60,11 @@ if with_object:
     if d == 2:
         several_objects = True
         if several_objects:
-            n_components = 2
-            mesh = Mesh("mesh/capacitance.xml")
+            n_components = 4
+            # mesh = Mesh("mesh/capacitance.xml")
+            # mesh = Mesh("mesh/capacitance2.xml")
+            mesh = Mesh("mesh/circuit.xml")
+
         else:
             mesh = Mesh("mesh/circle.xml")
     elif d == 3:
@@ -86,12 +89,16 @@ mesh.init(D-1,D) # Build connectivity between facets and cells
 #-------------------------------------------------------------------------------
 if with_object:
     if object_type == 'multi_components':
-        r0 = 0.5; r1 = 0.5;
-        x0 = np.pi; x1 = np.pi;
-        y0 = np.pi; y1 = np.pi + 2*r1;
-        z0 = np.pi; z1 = np.pi;
+        r0 = 0.5; r1 = 0.5; r2 = 0.5; r3 = 0.5;
+        x0 = np.pi; x1 = np.pi; x2 = np.pi; x3 = np.pi + 3*r3;
+        y0 = np.pi; y1 = np.pi + 3*r1; y2 = np.pi - 3*r1; y3 = np.pi;
+        z0 = np.pi; z1 = np.pi; z2 = np.pi; z3 = np.pi;
         if d == 2:
-            object_info = [x0, y0, r0, x1, y1, r1]
+            if n_components == 2:
+                object_info = [x0, y0, r0, x1, y1, r1]
+            else:
+                object_info = [x0, y0, r0, x1, y1, r1,
+                               x2, y2, r2, x3, y3, r3]
             L = [l1, w1, l2, w2]
         elif d == 3:
             object_info = [x0, y0, z0, r0, x1, y1, z1, r1]
@@ -123,11 +130,17 @@ facet_f = FacetFunction('size_t', mesh, 0)
 DomainBoundary().mark(facet_f, 1)
 
 if n_components > 1:
-    boundary_sphere =\
-             'near((x[0]-l2/2)*(x[0]-l2/2)+(x[1]-w2/2)*(x[1]-w2/2), r0*r0, tol)'
-    boundary_sphere =\
-         CompiledSubDomain(boundary_sphere, l2=l2, w2=w2, r0 = r0, tol=1E-2)
-    boundary_sphere.mark(facet_f, n_components)
+    tmp = 3
+    for i in range(2, n_components+1):
+        x1 = object_info[tmp]
+        y1 = object_info[tmp+1]
+        r1 = object_info[tmp+2]
+        boundary_sphere =\
+                 'near((x[0]-x1)*(x[0]-x1)+(x[1]-y1)*(x[1]-y1), r1*r1, tol)'
+        boundary_sphere =\
+             CompiledSubDomain(boundary_sphere, x1 = x1, y1 = y1, r1 = r1, tol=1E-2)
+        boundary_sphere.mark(facet_f, i)
+        tmp += 3
 
 boundary_l1 = 'near((x[0]-l1), 0, tol)'
 boundary_l2 = 'near((x[0]-l2), 0, tol)'
@@ -150,6 +163,8 @@ if d == 3:
     boundary_h1.mark(facet_f, n_components+5)
     boundary_h2.mark(facet_f, n_components+6)
 
+# plot(facet_f, interactive=True)
+# sys.exit()
 #-------------------------------------------------------------------------------
 #                        Indices of object vertices
 #-------------------------------------------------------------------------------
@@ -176,7 +191,6 @@ if with_object:
 else:
     components_vertices = None
 
-
 #-------------------------------------------------------------------------------
 #                       Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
@@ -198,19 +212,21 @@ if with_object:
     for myCell in boundary_adjacent_cells:
         cell_domains[myCell] = 0
 
+# plot(cell_domains, interactive=True)
+# sys.exit()
 #-------------------------------------------------------------------------------
 #                       Simulation parameters
 #-------------------------------------------------------------------------------
 n_pr_cell = 8             # Number of particels per cell
 n_pr_super_particle = 8   # Number of particles per super particle
-tot_time = 2             # Total simulation time
+tot_time = 10             # Total simulation time
 dt = 0.251327             # Time step
 
 tot_volume = assemble(1*dx(mesh)) # Volume of simulation domain
 
 n_cells = mesh.num_cells()    # Number of cells
-N_e = n_pr_cell*n_cells       # Number of electrons
-N_i = n_pr_cell*n_cells       # Number of ions
+N_e = 10000#n_pr_cell*n_cells       # Number of electrons
+N_i = 10000#n_pr_cell*n_cells       # Number of ions
 num_species = 2               # Number of species
 #-------------------------------------------------------------------------------
 #                       Physical parameters
@@ -458,7 +474,7 @@ if with_object:
     capacitance = np.empty((n_components, n_components))
     for i in range(n_components):
         for j in range(n_components):
-            capacitance[i,j] = -epsilon_0*assemble(inner(E_object[j], -1*n)*ds(i+1))
+            capacitance[i,j] = epsilon_0*assemble(inner(E_object[j], -1*n)*ds(i+1))
 
     #capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
     inv_capacitance = np.linalg.inv(capacitance)
@@ -471,6 +487,40 @@ if with_object:
     print("Inverse of capacitance matrix: ")
     print("")
     print(inv_capacitance)
+    print("-------------------------")
+    print("")
+
+#-------------------------------------------------------------------------------
+#          Circuit Components and Differential Biasing
+#-------------------------------------------------------------------------------
+circuits = True
+if circuits:
+    n_circuits = 2
+    n_comps_circuit_1 = 3
+    n_comps_circuit_2 = 1
+
+    capacitance_difference = np.ones((n_comps_circuit_1,n_comps_circuit_1))
+    for i in range(1,n_comps_circuit_1):
+        for j in range(n_comps_circuit_1):
+            capacitance_difference[i-1,j] =\
+                                    inv_capacitance[i,j] - inv_capacitance[0,j]
+
+    inv_capacitance_difference = np.linalg.inv(capacitance_difference)
+
+    # Potential differences between components in circuit 1
+    diff_epsilon1 = 0.1
+    diff_epsilon2 = 0.2
+    diff_potential = [diff_epsilon1, diff_epsilon2, 0.0]
+    diff_potential = np.asarray(diff_potential)
+    print("")
+    print("Difference capacitance matrix: ")
+    print("")
+    print(capacitance_difference)
+    print("-------------------------")
+    print("")
+    print("Inverse of difference capacitance matrix: ")
+    print("")
+    print(inv_capacitance_difference)
     print("-------------------------")
     print("")
 
@@ -548,10 +598,16 @@ for i, step in enumerate(range(tot_time)):
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
     q_object = info[3]
-    J_e = info[4]
-    J_i = info[5]
 
-    J_e, J_i = lp.current_density(J_e, J_i)
+    # circuits:
+    if circuits:
+        diff_potential[2] = np.sum(q_object[:-1]) - np.sum(q_rho[:-1])
+        q_object[:-1] = np.dot(inv_capacitance_difference,diff_potential) + q_rho[:-1]
+
+    # J_e = info[4]
+    # J_i = info[5]
+
+    # J_e, J_i = lp.current_density(J_e, J_i)
 
     tot_n, n_proc = lp.total_number_of_particles()
     print("total_number_of_particles: ", tot_n)

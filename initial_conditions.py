@@ -209,10 +209,16 @@ def multi_components(L, initial_ion_positions, initial_electron_positions,
         w1 = L[1]
         l2 = L[2]
         w2 = L[3]
-        s0 = [object_info[0], object_info[1]]
-        r0 = object_info[2]
-        s1 = [object_info[3], object_info[4]]
-        r1 = object_info[5]
+
+        s = []
+        r = []
+        tmp = 0
+        while tmp < len(object_info):
+            s0 = [object_info[tmp], object_info[tmp+1]]
+            r0 = object_info[tmp+2]
+            s.append(s0)
+            r.append(r0)
+            tmp += 3
     if d == 3:
         l1 = L[0]
         w1 = L[1]
@@ -226,12 +232,14 @@ def multi_components(L, initial_ion_positions, initial_electron_positions,
     index_i = []
     for i in range(len(initial_ion_positions)):
         x = initial_ion_positions[i]
-        if (np.dot(x-s0, x-s0) < r0**2 or np.dot(x-s1, x-s1) < r1**2):
-            index_i.append(i)
+        for j in range(len(r)):
+            if np.dot(x-s[j], x-s[j]) < r[j]**2:
+                index_i.append(i)
     for i in range(len(initial_electron_positions)):
         x = initial_electron_positions[i]
-        if (np.dot(x-s0, x-s0) < r0**2 or np.dot(x-s1, x-s1) < r1**2):
-            index_e.append(i)
+        for j in range(len(r)):
+            if np.dot(x-s[j], x-s[j]) < r[j]**2:
+                index_e.append(i)
 
     initial_electron_positions = np.delete(initial_electron_positions, index_e,\
                                            axis=0)
@@ -249,8 +257,9 @@ def multi_components(L, initial_ion_positions, initial_electron_positions,
             RandomBox([l1,w1, h1], [l2,w2, h2]).generate([len_e, 1, 1])
         for i in range(len(initial_electron_positions_sec)):
             x = initial_electron_positions_sec[i]
-            if (np.dot(x-s0, x-s0) < r0**2 or np.dot(x-s1, x-s1) < r1**2):
-                index_e.append(i)
+            for j in range(len(r)):
+                if np.dot(x-s[j], x-s[j]) < r[j]**2:
+                    index_e.append(i)
         initial_electron_positions_sec = \
         np.delete(initial_electron_positions_sec, index_e, axis=0)
         initial_electron_positions = np.append(initial_electron_positions, \
@@ -266,8 +275,9 @@ def multi_components(L, initial_ion_positions, initial_electron_positions,
             RandomBox([l1,w1,h1], [l2,w2,h2]).generate([len_i, 1, 1])
         for i in range(len(initial_ion_positions_sec)):
             x = initial_ion_positions_sec[i]
-            if (np.dot(x-s0, x-s0) < r0**2 or np.dot(x-s1, x-s1) < r1**2):
-                index_i.append(i)
+            for j in range(len(r)):
+                if np.dot(x-s[j], x-s[j]) < r[j]**2:
+                    index_i.append(i)
         initial_ion_positions_sec = np.delete(initial_ion_positions_sec,\
                                     index_i, axis=0)
         initial_ion_positions = np.append(initial_ion_positions, \
