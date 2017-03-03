@@ -40,10 +40,10 @@ def mesh_with_object(d, n_components, object_type):
     if d == 2:
         if n_components == 1:
             mesh = single_circle()
-        elif n_components == 2:
+        if n_components == 2:
             mesh = two_circles()
-        elif n_components == 4:
-            mesh = four_circles
+        if n_components == 4:
+            mesh = four_circles()
     elif d == 3:
         if object_type == 'spherical_object':
             mesh = single_sphere()

@@ -4,7 +4,7 @@ from Poisson_solver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
 from mesh_types import *
-from capacitance_matrix import capacitance_matrix
+from capacitance_matrix import capacitance_matrix, circuits
 from boundary_conditions import *
 from mark_object import *
 from get_object import *
@@ -47,7 +47,7 @@ else:
 #-------------------------------------------------------------------------------
 if with_object:
     dim = 2
-    n_components = 1
+    n_components = 4
     mesh, L = mesh_with_object(dim, n_components, object_type)
     d = mesh.topology().dim()
 else:
@@ -82,14 +82,6 @@ if with_object:
     cell_domains = mark_boundary_adjecent_cells(mesh)
 else:
     components_vertices = None
-
-# # Save sub domains to file
-# file = File("Plots/domains.xml")
-# file << facet_f
-# # Save sub domains to VTK files
-# file = File("Plots/subdomains.pvd")
-# file << facet_f
-# plot(facet_f,interactive=True)
 #-------------------------------------------------------------------------------
 #                       Simulation parameters
 #-------------------------------------------------------------------------------
@@ -137,7 +129,8 @@ if with_drift and d == 2:
     vd = [vd_x, vd_y]
 if with_drift and d == 3:
     vd = [vd_x, vd_y, vd_z]
-
+if not B_field:
+    B0 = None
 sigma_e, sigma_i, mu_e, mu_i = [], [], [], []
 for i in range(d):
     sigma_e.append(alpha_e)
@@ -174,35 +167,6 @@ else:
                                                         facet_f,
                                                         n_components)
 
-        # if d == 2:
-        #     E0 = [0.1, 0.2]
-        #     phi_0 = 'x[0]*Ex + x[1]*Ey'
-        #     phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        #     phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        #     phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        #     phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        # if d == 3:
-        #     phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
-        #     phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #     phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #     phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #     phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #
-        # bc0 = DirichletBC(V, phi_l1, boundary_l1)
-        # bc1 = DirichletBC(V, phi_l2, boundary_l2)
-        # bc2 = DirichletBC(V, phi_w1, boundary_w1)
-        # bc3 = DirichletBC(V, phi_w2, boundary_w2)
-        #
-        # bcs_Dirichlet = [bc0, bc1, bc2, bc3]
-        # if d == 3:
-        #     phi_h1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #     phi_h2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        #
-        #     bc4 = DirichletBC(V, phi_h1, boundary_h1)
-        #     bc5 = DirichletBC(V, phi_h2, boundary_h2)
-        #
-        #     bcs_Dirichlet.append(bc4)
-        #     bcs_Dirichlet.append(bc5)
     else:
         phi0 = Constant(0.0)
         V, VV, W, bcs_Dirichlet = dirichlet_bcs_zero_potential(phi0, mesh,
@@ -218,7 +182,6 @@ initial_positions, initial_velocities, properties, n_electrons = \
 initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i, mu_e, mu_i, sigma_e,
                    sigma_i, object_info, random_domain, initial_type)
 
-# initial_velocities[:,2] = 0.
 #-------------------------------------------------------------------------------
 #         Create Krylov solver
 #-------------------------------------------------------------------------------
@@ -254,37 +217,13 @@ if with_object:
 #-------------------------------------------------------------------------------
 #          Circuit Components and Differential Biasing
 #-------------------------------------------------------------------------------
-circuits = True
-if circuits:
-    n_circuits = 2
-    n_comps_circuit_1 = 3
-    n_comps_circuit_2 = 1
-
-    capacitance_difference = np.ones((n_comps_circuit_1,n_comps_circuit_1))
-    for i in range(1,n_comps_circuit_1):
-        for j in range(n_comps_circuit_1):
-            capacitance_difference[i-1,j] =\
-                                    inv_capacitance[i,j] - inv_capacitance[0,j]
-
-    inv_capacitance_difference = np.linalg.inv(capacitance_difference)
-
-    # Potential differences between components in circuit 1
-    diff_epsilon1 = 0.1
-    diff_epsilon2 = 0.2
-    diff_potential = [diff_epsilon1, diff_epsilon2, 0.0]
-    diff_potential = np.asarray(diff_potential)
-    print("")
-    print("Difference capacitance matrix: ")
-    print("")
-    print(capacitance_difference)
-    print("-------------------------")
-    print("")
-    print("Inverse of difference capacitance matrix: ")
-    print("")
-    print(inv_capacitance_difference)
-    print("-------------------------")
-    print("")
-
+with_circuits = True
+if with_object and with_circuits:
+    circuits_info = [[1, 3], [2, 4]]
+    bias_1 = 0.1
+    bias_2 = 0.2
+    bias_voltage = np.array([[bias_1, 0.0],[bias_2, 0.0]])
+    D, inv_D = circuits(inv_capacitance, circuits_info)
 #-------------------------------------------------------------------------------
 #             Plot and write to file
 #-------------------------------------------------------------------------------
@@ -361,13 +300,23 @@ for i, step in enumerate(range(tot_time)):
     q_object = info[3]
 
     # circuits:
-    if circuits:
-        diff_potential[2] = np.sum(q_object[:-1]) - np.sum(q_rho[:-1])
-        q_object[:-1] = np.dot(inv_capacitance_difference,diff_potential) + q_rho[:-1]
+    if with_circuits:
+        circuits_info = [[1, 3], [2, 4]]
+        for k in range(len(circuits_info)):
+            for l in circuits_info[k]:
+                bias_voltage[k,-1] += (q_object[l-1] - q_rho[l-1])
+            for n,l in enumerate(circuits_info[k]):
+                q_object[l-1] = np.dot(inv_D[k], bias_voltage[k])[n] + q_rho[l-1]
+
+        # for k in circuits_info[0]:
+        #     bias_voltage[-1] += (q_object[k] - q_rho[k])
+        # for k in circuits_info[1]:
+        #     bias_voltage2[-1] += (q_object[k] - q_rho[k])
+        # # bias_voltage1[2] = np.sum(q_object[:-1]) - np.sum(q_rho[:-1])
+        # q_object[:-1] = np.dot(inv_D, bias_voltage1) + q_rho[:-1]
 
     # J_e = info[4]
     # J_i = info[5]
-
     # J_e, J_i = lp.current_density(J_e, J_i)
 
     tot_n, n_proc = lp.total_number_of_particles()

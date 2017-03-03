@@ -39,9 +39,9 @@ def solve_E(V, W, facet_f, n_components, outer_Dirichlet_bcs):
         E = E_field(phi, W)
         E_object.append(E)
 
-        plot(phi, interactive=True)
-        File("Plots/phi_object{i}.pvd".format(i=i)) << phi
-        File("Plots/E_object{i}.pvd".format(i=i)) << E
+        # plot(phi, interactive=True)
+        # File("Plots/phi_object{i}.pvd".format(i=i)) << phi
+        # File("Plots/E_object{i}.pvd".format(i=i)) << E
     return E_object
 
 def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
@@ -73,34 +73,41 @@ def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
 
 
 def circuits(inv_capacitance, circuits_info):
-    n_circuits = 2
-    n_comps_circuit_1 = 3
-    n_comps_circuit_2 = 1
 
-    capacitance_difference = np.ones((n_comps_circuit_1,n_comps_circuit_1))
-    for i in range(1,n_comps_circuit_1):
-        for j in range(n_comps_circuit_1):
-            capacitance_difference[i-1,j] =\
-                                    inv_capacitance[i,j] - inv_capacitance[0,j]
+    tmp1 = []
+    tmp2 = []
+    for i in range(len(circuits_info)):
+        if len(circuits_info[i]) > 1:
+            tmp1.append(len(circuits_info[i]))
+            tmp2.append(i)
+    D_matrices = []
+    for i in range(len(tmp1)):
+        D_matrices.append(np.ones((tmp1[i], tmp1[i])))
+    for i in range(len(D_matrices)):
+        circuit = circuits_info[tmp2[i]]
+        n_comp = len(circuit)
+        for k in range(1, n_comp):
+            for l in range(n_comp):
+                D_matrices[i][k-1,l] = \
+                                 inv_capacitance[circuit[k]-1, circuit[l]-1] -\
+                                 inv_capacitance[circuit[0]-1, circuit[l]-1]
 
-    inv_capacitance_difference = np.linalg.inv(capacitance_difference)
+    inv_D_matrices = []
+    for i in range(len(D_matrices)):
+        inv_D_matrices.append(np.linalg.inv(D_matrices[i]))
 
-    # Potential differences between components in circuit 1
-    diff_epsilon1 = 0.1
-    diff_epsilon2 = 0.2
-    diff_potential = [diff_epsilon1, diff_epsilon2, 0.0]
-    diff_potential = np.asarray(diff_potential)
-    print("")
-    print("Difference capacitance matrix: ")
-    print("")
-    print(capacitance_difference)
-    print("-------------------------")
-    print("")
+    print("                                          ")
+    print("Difference capacitance matrices:          ")
+    print("                                          ")
+    print(D_matrices)
+    print("------------------------------------------")
+    print("                                          ")
     print("Inverse of difference capacitance matrix: ")
-    print("")
-    print(inv_capacitance_difference)
-    print("-------------------------")
-    print("")
+    print("                                          ")
+    print(inv_D_matrices)
+    print("------------------------------------------")
+    print("                                          ")
+    return D_matrices, inv_D_matrices
 
 if __name__=='__main__':
 
@@ -110,8 +117,11 @@ if __name__=='__main__':
     from boundary_conditions import *
     dim = 2
     epsilon_0 = 1.0
-    n_components = 1
+    n_components = 4
     object_type = 'multi_components'
+
+    circuits_info = [[1, 3], [2, 4]]
+
     mesh, L = mesh_with_object(dim, n_components, object_type)
     object_info = get_object(dim, object_type, n_components)
     facet_f = mark_boundaries(mesh, L, object_info, n_components)
@@ -120,3 +130,5 @@ if __name__=='__main__':
                                                            n_components)
     capacitance, inv_capacitance = capacitance_matrix(V, W, mesh, facet_f,
                                                       n_components, epsilon_0)
+
+    D, inv_D = circuits(inv_capacitance, circuits_info)
