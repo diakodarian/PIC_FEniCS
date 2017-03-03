@@ -4,8 +4,11 @@ from Poisson_solver import periodic_solver, dirichlet_solver, E_field
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
 from mesh_types import *
+from capacitance_matrix import capacitance_matrix
 from boundary_conditions import *
-from particle_injection import num_particles
+from mark_object import *
+from get_object import *
+from initialize_particle_injection import *
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
@@ -39,181 +42,54 @@ else:
         initial_type = 'Langmuir_waves'    # random or Langmuir_waves
         periodic_field_solver = True     # Periodic or Dirichlet bcs
 
-
-#-------------------------------------------------------------------------------
-#                           Mesh parameters
-#-------------------------------------------------------------------------------
-# Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
-d = 2              # Space dimension
-l1 = 0.            # Start position x-axis
-l2 = 2.*np.pi      # End position x-axis
-w1 = 0.            # Start position y-axis
-w2 = 2.*np.pi      # End position y-axis
-h1 = 0.            # Start position z-axis
-h2 = 2.*np.pi      # End position z-axis
-
 #-------------------------------------------------------------------------------
 #                       Upload mesh
 #-------------------------------------------------------------------------------
 if with_object:
+    dim = 2
     n_components = 1
-    if d == 2:
-        several_objects = True
-        if several_objects:
-            n_components = 4
-            # mesh = Mesh("mesh/capacitance.xml")
-            # mesh = Mesh("mesh/capacitance2.xml")
-            mesh = Mesh("mesh/circuit.xml")
-
-        else:
-            mesh = Mesh("mesh/circle.xml")
-    elif d == 3:
-        if object_type == 'spherical_object':
-            mesh = Mesh('mesh/sphere.xml')
-        elif object_type == 'cylindrical_object':
-            mesh = Mesh('mesh/cylinder.xml')
+    mesh, L = mesh_with_object(dim, n_components, object_type)
+    d = mesh.topology().dim()
 else:
-    if d == 2:
-        L = [l1, w1, l2, w2]
-        divisions = [32,32]
-        mesh = HyperCube(L, divisions)
-    if d == 3:
-        L = [l1, w1, h1, l2, w2, h2]
-        divisions = [32,32,32]
-        mesh = HyperCube(L, divisions)
+    # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
+    d = 2              # Space dimension
+    l1 = 0.            # Start position x-axis
+    l2 = 2.*np.pi      # End position x-axis
+    w1 = 0.            # Start position y-axis
+    w2 = 2.*np.pi      # End position y-axis
+    h1 = 0.            # Start position z-axis
+    h2 = 2.*np.pi      # End position z-axis
 
-D = mesh.topology().dim()
-mesh.init(D-1,D) # Build connectivity between facets and cells
+    mesh, L = simple_mesh(d, l1, l2, w1, w2, h1, h2)
+
 #-------------------------------------------------------------------------------
-#                       Create the object
+#                      Get the object
 #-------------------------------------------------------------------------------
 if with_object:
-    if object_type == 'multi_components':
-        r0 = 0.5; r1 = 0.5; r2 = 0.5; r3 = 0.5;
-        x0 = np.pi; x1 = np.pi; x2 = np.pi; x3 = np.pi + 3*r3;
-        y0 = np.pi; y1 = np.pi + 3*r1; y2 = np.pi - 3*r1; y3 = np.pi;
-        z0 = np.pi; z1 = np.pi; z2 = np.pi; z3 = np.pi;
-        if d == 2:
-            if n_components == 2:
-                object_info = [x0, y0, r0, x1, y1, r1]
-            else:
-                object_info = [x0, y0, r0, x1, y1, r1,
-                               x2, y2, r2, x3, y3, r3]
-            L = [l1, w1, l2, w2]
-        elif d == 3:
-            object_info = [x0, y0, z0, r0, x1, y1, z1, r1]
-            L = [l1, w1, h1, l2, w2, h2]
-    if object_type == 'spherical_object':
-        x0 = np.pi
-        y0 = np.pi
-        z0 = np.pi
-        r0 = 0.5
-        if d == 2:
-            object_info = [x0, y0, r0]
-            L = [l1, w1, l2, w2]
-        elif d == 3:
-            object_info = [x0, y0, z0, r0]
-            L = [l1, w1, h1, l2, w2, h2]
-    if object_type == 'cylindrical_object':
-        x0 = np.pi
-        y0 = np.pi
-        r0 = 0.5
-        h0 = 1.0
-        object_info = [x0, y0, r0, h0]
-        L = [l1, w1, h1, l2, w2, h2]
+    object_info = get_object(dim, object_type, n_components)
 else:
     object_info = None
+
 #-------------------------------------------------------------------------------
-#             Mark facets including electrical components
-#-------------------------------------------------------------------------------
-facet_f = FacetFunction('size_t', mesh, 0)
-DomainBoundary().mark(facet_f, 1)
-
-if n_components > 1:
-    tmp = 3
-    for i in range(2, n_components+1):
-        x1 = object_info[tmp]
-        y1 = object_info[tmp+1]
-        r1 = object_info[tmp+2]
-        boundary_sphere =\
-                 'near((x[0]-x1)*(x[0]-x1)+(x[1]-y1)*(x[1]-y1), r1*r1, tol)'
-        boundary_sphere =\
-             CompiledSubDomain(boundary_sphere, x1 = x1, y1 = y1, r1 = r1, tol=1E-2)
-        boundary_sphere.mark(facet_f, i)
-        tmp += 3
-
-boundary_l1 = 'near((x[0]-l1), 0, tol)'
-boundary_l2 = 'near((x[0]-l2), 0, tol)'
-boundary_w1 = 'near((x[1]-w1), 0, tol)'
-boundary_w2 = 'near((x[1]-w2), 0, tol)'
-boundary_l1 = CompiledSubDomain(boundary_l1, l1=l1, tol=1E-8)
-boundary_l2 = CompiledSubDomain(boundary_l2, l2=l2, tol=1E-8)
-boundary_w1 = CompiledSubDomain(boundary_w1, w1=w1, tol=1E-8)
-boundary_w2 = CompiledSubDomain(boundary_w2, w2=w2, tol=1E-8)
-boundary_l1.mark(facet_f, n_components+1)
-boundary_l2.mark(facet_f, n_components+2)
-boundary_w1.mark(facet_f, n_components+3)
-boundary_w2.mark(facet_f, n_components+4)
-
-if d == 3:
-    boundary_h1 = 'near((x[2]-h1), 0, tol)'
-    boundary_h2 = 'near((x[2]-h2), 0, tol)'
-    boundary_h1 = CompiledSubDomain(boundary_h1, h1=h1, tol=1E-8)
-    boundary_h2 = CompiledSubDomain(boundary_h2, h2=h2, tol=1E-8)
-    boundary_h1.mark(facet_f, n_components+5)
-    boundary_h2.mark(facet_f, n_components+6)
-
-# plot(facet_f, interactive=True)
-# sys.exit()
-#-------------------------------------------------------------------------------
-#                        Indices of object vertices
+#  1) Mark facets including electrical components
+#  2) Indices of object vertices
+#  3) Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
 if with_object:
-    components_cells = []
-    for i in range(n_components):
-        itr_facet = SubsetIterator(facet_f, i+1)
-        object_adjacent_cells = []
-        for f in itr_facet:
-            object_adjacent_cells.append(f.entities(D)[0])
-        components_cells.append(object_adjacent_cells)
-
-if with_object:
-    components_vertices = []
-    for i in range(n_components):
-        itr_facet = SubsetIterator(facet_f, i+1)
-        object_vertices = set()
-        for f in itr_facet:
-            for v in vertices(f):
-                object_vertices.add(v.index())
-
-        object_vertices = list(object_vertices)
-        components_vertices.append(object_vertices)
+    facet_f = mark_boundaries(mesh, L, object_info, n_components)
+    components_cells = object_cells(mesh, facet_f, n_components)
+    components_vertices = object_vertices(facet_f, n_components)
+    cell_domains = mark_boundary_adjecent_cells(mesh)
 else:
     components_vertices = None
 
-#-------------------------------------------------------------------------------
-#                       Mark boundary adjacent cells
-#-------------------------------------------------------------------------------
-if with_object:
-    if d == 2:
-        boundary_adjacent_cells = [myCell for myCell in cells(mesh)
-                                   if any([((myFacet.midpoint().x()-np.pi)**2 + \
-                                    (myFacet.midpoint().y()-np.pi)**2 < 0.25) \
-                                    for myFacet in facets(myCell)])]
-    elif d == 3:
-        boundary_adjacent_cells = [myCell for myCell in cells(mesh)
-                                   if any([((myFacet.midpoint().x()-np.pi)**2 + \
-                                    (myFacet.midpoint().y()-np.pi)**2 + \
-                                    (myFacet.midpoint().z()-np.pi)**2 < 0.25) \
-                                    for myFacet in facets(myCell)])]
-
-    cell_domains = CellFunction('size_t', mesh)
-    cell_domains.set_all(1)
-    for myCell in boundary_adjacent_cells:
-        cell_domains[myCell] = 0
-
-# plot(cell_domains, interactive=True)
-# sys.exit()
+# # Save sub domains to file
+# file = File("Plots/domains.xml")
+# file << facet_f
+# # Save sub domains to VTK files
+# file = File("Plots/subdomains.pvd")
+# file << facet_f
+# plot(facet_f,interactive=True)
 #-------------------------------------------------------------------------------
 #                       Simulation parameters
 #-------------------------------------------------------------------------------
@@ -232,6 +108,7 @@ num_species = 2               # Number of species
 #                       Physical parameters
 #-------------------------------------------------------------------------------
 n_plasma = N_e/tot_volume   # Plasma density
+
 epsilon_0 = 1.              # Permittivity of vacuum
 mu_0 = 1.                   # Permeability of vacuum
 T_e = 1.                    # Temperature - electrons
@@ -247,97 +124,43 @@ alpha_i = np.sqrt(kB*T_i/m_i) # Boltzmann factor
 
 q_e = -e         # Electric charge - electron
 q_i = Z*e        # Electric charge - ions
-w = (l2*w2)/N_e  # Non-dimensionalization factor
+w = (L[d]*L[d+1])/N_e  # Non-dimensionalization factor
 
-#-------------------------------------------------------------------------------
-#                   Initilize particle injection process
-#-------------------------------------------------------------------------------
-if d == 2:
-    sigma_e = [alpha_e, alpha_e]
-    sigma_i = [alpha_i, alpha_i]
-    n0 = np.array([1, 0])
-    n1 = np.array([-1, 0])
-    n2 = np.array([0, 1])
-    n3 = np.array([0, -1])
-    if B_field:
-        B0 = np.array([1.0, 0.])     # Uniform background magnetic field
-    else:
-        B0 = np.array([0., 0.])
-    if with_drift:
-        vd = np.array([0.4, 0.])  # Drift velocity of the plasma particles
-        mu_e = [0.4,0.]
-        mu_i = [0.4,0.]
-    else:
-        vd = np.array([0., 0.])
-        mu_e = [0.,0.]
-        mu_i = [0.,0.]
-    # Normal components of velocity
-    v_n0 = np.dot(vd, n0)
-    v_n1 = np.dot(vd, n1)
-    v_n2 = np.dot(vd, n2)
-    v_n3 = np.dot(vd, n3)
-    v_n = np.array([v_n0,v_n1,v_n2,v_n3])
-    A_surface = l2
-if d == 3:
-    sigma_e = [alpha_e, alpha_e,alpha_e]
-    sigma_i = [alpha_i, alpha_i,alpha_i]
-    # Normal unit surface vectors
-    n0 = np.array([1, 0, 0])
-    n1 = np.array([-1, 0, 0])
-    n2 = np.array([0, 1, 0])
-    n3 = np.array([0, -1, 0])
-    n4 = np.array([0, 0, 1])
-    n5 = np.array([0, 0, -1])
-    if B_field:
-        B0 = np.array([0., 0.,5.])     # Uniform background magnetic field
-    else:
-        B0 = np.array([0., 0.,0.])
-    if with_drift:
-        vd = np.array([0.2, 0.,0.])  # Drift velocity of the plasma particles
-        mu_e = [0.2,0.,0.]
-        mu_i = [0.2,0.,0.]
-    else:
-        vd = np.array([0., 0.,0.])
-        mu_e = [0.,0.,0.]
-        mu_i = [0.,0.,0.]
+Bx = 0.0; By = 0.0; Bz = 5.0;
+vd_x = 0.4; vd_y = 0.0; dv_z = 0.0;
 
-    # Normal components of velocity
-    v_n0 = np.dot(vd, n0)
-    v_n1 = np.dot(vd, n1)
-    v_n2 = np.dot(vd, n2)
-    v_n3 = np.dot(vd, n3)
-    v_n4 = np.dot(vd, n4)
-    v_n5 = np.dot(vd, n5)
-    v_n = np.array([v_n0,v_n1,v_n2,v_n3,v_n4,v_n5])
-    A_surface = l2*w2
+if B_field and d == 2:
+    B0 = [Bx, By]
+if B_field and d == 3:
+    B0 = [Bx, By, Bz]
+if with_drift and d == 2:
+    vd = [vd_x, vd_y]
+if with_drift and d == 3:
+    vd = [vd_x, vd_y, vd_z]
+
+sigma_e, sigma_i, mu_e, mu_i = [], [], [], []
+for i in range(d):
+    sigma_e.append(alpha_e)
+    sigma_i.append(alpha_i)
+    mu_e.append(vd[i])
+    mu_i.append(vd[i])
 
 if B_field:
     B0_2 = np.linalg.norm(B0)         # Norm of the B-field
     E0 = -B0_2*np.cross(vd, B0)       # Induced background electric field
-
-    count_e = []
-    count_i = []
-    for i in range(len(v_n)):
-        count_e.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_e[0]))
-        count_i.append(num_particles(A_surface, dt, n_plasma, v_n[i], sigma_i[0]))
-
-    diff_e = [(i - int(i)) for i in count_e]
-    diff_i = [(i - int(i)) for i in count_i]
-
-    count_e = [int(i) for i in count_e]
-    count_i = [int(i) for i in count_i]
-
-    count_e[0] += int(sum(diff_e))
-    count_i[0] += int(sum(diff_i))
-else:
-    count_e = []
-    count_i = []
-
-print("counts: ", count_e, count_i)
-
+    if d == 2:
+        E0 = [0.1, 0.2]
+#-------------------------------------------------------------------------------
+#                   Initilize particle injection process
+#-------------------------------------------------------------------------------
+if with_drift:
+    n_injected_e, n_injected_i = initialize_particle_injection(L, dt, n_plasma,
+                                                           sigma_e, sigma_i, vd)
 if with_object:
+    r0 = 0.5
     capacitance_sphere = 4.*np.pi*epsilon_0*r0       # Theoretical value
     print("Theoretical capacitance for a sphere: ", capacitance_sphere)
+
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
@@ -345,39 +168,47 @@ if with_object:
 if periodic_field_solver:
     V, VV, W = periodic_bcs(mesh, L)
 else:
-    V = FunctionSpace(mesh, "CG", 1)
-    VV = VectorFunctionSpace(mesh, "CG", 1)
-    W = VectorFunctionSpace(mesh, 'DG', 0)
+    if B_field:
+        V, VV, W, bcs_Dirichlet = dirichlet_bcs_B_field(E0,
+                                                        mesh,
+                                                        facet_f,
+                                                        n_components)
 
-    if d == 2:
-        E0 = [0.1, 0.2]
-        phi_0 = 'x[0]*Ex + x[1]*Ey'
-        phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-        phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-    if d == 3:
-        phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
-        phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        # if d == 2:
+        #     E0 = [0.1, 0.2]
+        #     phi_0 = 'x[0]*Ex + x[1]*Ey'
+        #     phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+        #     phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+        #     phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+        #     phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+        # if d == 3:
+        #     phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
+        #     phi_l1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #     phi_l2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #     phi_w1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #     phi_w2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #
+        # bc0 = DirichletBC(V, phi_l1, boundary_l1)
+        # bc1 = DirichletBC(V, phi_l2, boundary_l2)
+        # bc2 = DirichletBC(V, phi_w1, boundary_w1)
+        # bc3 = DirichletBC(V, phi_w2, boundary_w2)
+        #
+        # bcs_Dirichlet = [bc0, bc1, bc2, bc3]
+        # if d == 3:
+        #     phi_h1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #     phi_h2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+        #
+        #     bc4 = DirichletBC(V, phi_h1, boundary_h1)
+        #     bc5 = DirichletBC(V, phi_h2, boundary_h2)
+        #
+        #     bcs_Dirichlet.append(bc4)
+        #     bcs_Dirichlet.append(bc5)
+    else:
+        phi0 = Constant(0.0)
+        V, VV, W, bcs_Dirichlet = dirichlet_bcs_zero_potential(phi0, mesh,
+                                                               facet_f,
+                                                               n_components)
 
-    bc0 = DirichletBC(V, phi_l1, boundary_l1)
-    bc1 = DirichletBC(V, phi_l2, boundary_l2)
-    bc2 = DirichletBC(V, phi_w1, boundary_w1)
-    bc3 = DirichletBC(V, phi_w2, boundary_w2)
-
-    bcs_Dirichlet = [bc0, bc1, bc2, bc3]
-    if d == 3:
-        phi_h1 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-        phi_h2 = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-
-        bc4 = DirichletBC(V, phi_h1, boundary_h1)
-        bc5 = DirichletBC(V, phi_h2, boundary_h2)
-
-        bcs_Dirichlet.append(bc4)
-        bcs_Dirichlet.append(bc5)
 
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
@@ -404,8 +235,8 @@ solver.set_reuse_preconditioner(True)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
-lp = LagrangianParticles(VV, object_type, object_info, B_field, count_e,
-                        count_i, mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i,
+lp = LagrangianParticles(VV, object_type, object_info, B_field, n_injected_e,
+                         n_injected_i, mu_e, mu_i, sigma_e, sigma_i, w, q_e, q_i,
                         m_e, m_i, dt)
 lp.add_particles(initial_positions, initial_velocities, properties)
 
@@ -413,82 +244,12 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #             The capacitance matrix of the object
 #-------------------------------------------------------------------------------
 if with_object:
-    # Outer boundary conditions
-    cap_bc0 = DirichletBC(V, Constant(0.0), boundary_l1)
-    cap_bc1 = DirichletBC(V, Constant(0.0), boundary_l2)
-    cap_bc2 = DirichletBC(V, Constant(0.0), boundary_w1)
-    cap_bc3 = DirichletBC(V, Constant(0.0), boundary_w2)
-
-    cap_bcs_Dirichlet = [cap_bc0, cap_bc1, cap_bc2, cap_bc3]
-    if d == 3:
-        cap_bc4 = DirichletBC(V, Constant(0.0), boundary_h1)
-        cap_bc5 = DirichletBC(V, Constant(0.0), boundary_h2)
-
-        cap_bcs_Dirichlet.append(cap_bc4)
-        cap_bcs_Dirichlet.append(cap_bc5)
-
-    # Solve Laplace equation for each electrical component
-    E_object = []
-    for i in range(n_components):
-        bc_object = []
-        for j in range(n_components):
-            # Object boundary value
-            # 1 at i = j and 0 at the others
-            if i == j:
-                c = Constant(1.0)
-            else:
-                c = Constant(0.0)
-            bc_j = DirichletBC(V, c, facet_f, j+1) # facet indexing starts at 1
-            bc_object.append(bc_j)
-
-        # Source term: 0 everywhere
-        f = Function(V)
-        phi = dirichlet_solver(f, V, cap_bcs_Dirichlet, bc_object)
-        E = E_field(phi, W)
-        E_object.append(E)
-        plot(phi, interactive=True)
-
-        File("Plots/phi_object{i}.pvd".format(i=i)) << phi
-        File("Plots/E_object{i}.pvd".format(i=i)) << E
-
-test_surface_integral = False
-if test_surface_integral == True:
-    # Example 1:
-    # Rotational field around the circular object
-    # The surface integral sould be 0.
-    # func = Expression(('-1*(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '-1*(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
-    # Example 2:
-    # Gravitational field on the circular/spherical object
-    # The surface integral sould be 2*pi*r or 4*pi*r**2.
-    if d ==2:
-        func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a), 0.5))'), a=np.pi, degree=2)
-    elif d == 3:
-        func = Expression(('(x[0]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))', '(x[1]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))', '(x[2]-a)/(pow((x[0]-a)*(x[0]-a)+(x[1]-a)*(x[1]-a)+(x[2]-a)*(x[2]-a), 0.5))'), a=np.pi, degree=2)
-    f = interpolate(func, VV)
-    E.assign(f)
-    plot(E, interactive=True)
-
-if with_object:
-    ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
-    n = FacetNormal(mesh)
-    capacitance = np.empty((n_components, n_components))
-    for i in range(n_components):
-        for j in range(n_components):
-            capacitance[i,j] = epsilon_0*assemble(inner(E_object[j], -1*n)*ds(i+1))
-
-    #capacitance_sphere_numerical = assemble(inner(E, -1*n)*ds(1))
-    inv_capacitance = np.linalg.inv(capacitance)
-    print("")
-    print("Capacitance matrix: ")
-    print("")
-    print(capacitance)
-    print("-------------------------")
-    print("")
-    print("Inverse of capacitance matrix: ")
-    print("")
-    print(inv_capacitance)
-    print("-------------------------")
-    print("")
+    capacitance, inv_capacitance = capacitance_matrix(V,
+                                                      W,
+                                                      mesh,
+                                                      facet_f,
+                                                      n_components,
+                                                      epsilon_0)
 
 #-------------------------------------------------------------------------------
 #          Circuit Components and Differential Biasing

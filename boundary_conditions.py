@@ -108,6 +108,43 @@ def dirichlet_bcs(u_D, mesh, degree = 1):
     bc = DirichletBC(V, u_D, boundary)
     return bc, V, VV, W
 
+def dirichlet_bcs_zero_potential(phi0, mesh, facet_f, n_components):
+    # Create dolfin function spaces
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
+
+    d = mesh.topology().dim()
+
+    bcs_Dirichlet = []
+    for i in range(2*d):
+        bc0 = DirichletBC(V, phi0, facet_f, (n_components+i+1))
+        bcs_Dirichlet.append(bc0)
+
+    return V, VV, W, bcs_Dirichlet
+
+def dirichlet_bcs_B_field(E0, mesh, facet_f, n_components):
+    # Create dolfin function spaces
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
+
+    d = mesh.topology().dim()
+    if d == 2:
+        phi_0 = 'x[0]*Ex + x[1]*Ey'
+        phi_l = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
+    if d == 3:
+        phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
+        phi_l = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+
+
+    bcs_Dirichlet = []
+    for i in range(2*d):
+        bc0 = DirichletBC(V, phi_l, facet_f, (n_components+i+1))
+        bcs_Dirichlet.append(bc0)
+
+    return V, VV, W, bcs_Dirichlet
+
 def test_dirichlet_bcs():
     divs = [[20,20], [20,20, 20]]
     L = [[-1., -1, 2., 1.], [-1., -1, 0, 2., 1., 1.]]
