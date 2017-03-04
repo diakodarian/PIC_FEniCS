@@ -511,7 +511,7 @@ class LagrangianParticles:
         # What to do with escaped particles
         particles_inside_object = []
         particles_outside_domain = []
-        if self.object_type == 'multi_components':
+        if self.object_type == 'multi_spheres' or self.object_type == 'multi_circles':
             particles_inside_object1 = [[], [], [], []]
         for i in range(len(list_of_escaped_particles)):
             p = list_of_escaped_particles[i]
@@ -532,7 +532,7 @@ class LagrangianParticles:
                         particles_outside_domain.append(i)
 
             # If the particle hits the object remove it
-            if self.object_type == 'multi_components':
+            if self.object_type == 'multi_spheres' or self.object_type == 'multi_circles':
                 if d == 2:
                     s = []
                     r = []
@@ -583,7 +583,7 @@ class LagrangianParticles:
         particles_outside_domain  = list(particles_outside_domain)
 
         particles_to_be_removed = []
-        if self.object_type == 'multi_components':
+        if self.object_type == 'multi_spheres' or self.object_type == 'multi_circles':
             for j in range(len(particles_inside_object1)):
                 particles_to_be_removed.extend(particles_inside_object1[j])
                 print("particles inside object ", j, ": ", particles_inside_object1[j])
@@ -600,7 +600,7 @@ class LagrangianParticles:
             # Remove particles inside the object and accumulate the charge
             for i in reversed(particles_to_be_removed):
                 p = list_of_escaped_particles[i]
-                if self.object_type == 'multi_components':
+                if self.object_type == 'multi_spheres' or self.object_type == 'multi_circles':
                     for j in range(len(particles_inside_object1)):
                         if i in particles_inside_object1[j]:
                             object_charge[j] += p.properties['q']

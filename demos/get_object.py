@@ -27,6 +27,9 @@ def single_sphere():
     r0 = 0.5
     return [x0, y0, z0, r0]
 
+def two_spheres():
+    print("Not implemented yet")
+
 def single_cylinder():
     x0 = np.pi
     y0 = np.pi
@@ -35,17 +38,19 @@ def single_cylinder():
     return [x0, y0, r0, h0]
 
 def get_object(d, object_type, n_components):
-
-    if d == 2 and object_type == 'multi_components':
-        if n_components == 1:
+    if object_type == 'spherical_object':
+        if d == 2:
             object_info = single_circle()
+        if d == 3:
+            object_info = single_sphere()
+    if object_type == 'cylindrical_object':
+        object_info = single_cylinder()
+    if object_type == 'multi_circles':
         if n_components == 2:
             object_info = two_circles()
         if n_components == 4:
             object_info = four_circles()
-    if d == 3 and object_type == 'spherical_object':
-        object_info = single_sphere()
-    if d == 3 and object_type == 'cylindrical_object':
-        object_info = single_cylinder()
-
+    if object_type == 'multi_spheres':
+        print("Not implemented yet :( ")
+        sys.exit()
     return object_info

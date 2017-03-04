@@ -201,7 +201,7 @@ def spherical_object(L, initial_ion_positions, initial_electron_positions,
 
     return initial_electron_positions, initial_ion_positions
 
-def multi_components(L, initial_ion_positions, initial_electron_positions,
+def multi_spherical_components(L, initial_ion_positions, initial_electron_positions,
                     object_info):
     d = int(len(L)/2)
     if d == 2:
@@ -331,9 +331,9 @@ def initialize_particle_positions(N_e, N_i, L, random_domain, initial_type,
 
     initial_positions = []
 
-    if initial_type == 'multi_components':
+    if initial_type == 'multi_spheres' or initial_type == 'multi_circles':
         initial_electron_positions, initial_ion_positions = \
-        multi_components(L, initial_ion_positions, initial_electron_positions,\
+        multi_spherical_components(L, initial_ion_positions, initial_electron_positions,\
                         object_info)
         initial_positions.extend(initial_electron_positions)
 
@@ -413,7 +413,7 @@ def intialize_particle_velocities(n_electrons, n_ions, L,
     if initial_type == 'cylindrical_object':
         initial_electron_velocities, initial_ion_velocities = \
         object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
-    if initial_type == 'multi_components':
+    if initial_type == 'multi_spheres' or initial_type == 'multi_circles':
         initial_electron_velocities, initial_ion_velocities = \
         object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
 

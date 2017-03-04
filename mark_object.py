@@ -38,12 +38,12 @@ def mark_boundary_adjecent_cells(mesh):
     d = mesh.topology().dim()
     if d == 2:
         boundary_adjacent_cells = [myCell for myCell in cells(mesh)
-                                   if any([((myFacet.midpoint().x()-np.pi)**2 + \
+                                  if any([((myFacet.midpoint().x()-np.pi)**2 + \
                                     (myFacet.midpoint().y()-np.pi)**2 < 0.25) \
                                     for myFacet in facets(myCell)])]
     elif d == 3:
         boundary_adjacent_cells = [myCell for myCell in cells(mesh)
-                                   if any([((myFacet.midpoint().x()-np.pi)**2 + \
+                                  if any([((myFacet.midpoint().x()-np.pi)**2 + \
                                     (myFacet.midpoint().y()-np.pi)**2 + \
                                     (myFacet.midpoint().z()-np.pi)**2 < 0.25) \
                                     for myFacet in facets(myCell)])]
@@ -60,36 +60,82 @@ def mark_outer_boundary(facet_f, domain_info, n_components):
 
     for i in range(2*d):
         boundary = 'near((x[i]-l), 0, tol)'
-        boundary = CompiledSubDomain(boundary, i=i%d, l=domain_info[i], tol=1E-8)
+        boundary = CompiledSubDomain(boundary,i=i%d,l=domain_info[i],tol=1E-8)
         boundary.mark(facet_f, (n_components+i+1))
     return facet_f
 
-def mark_spherical_objects(facet_f, object_info, n_components):
+def mark_circular_objects(facet_f, object_info, n_components):
     if n_components > 1:
       tmp = 3
       for i in range(2, n_components+1):
           x1 = object_info[tmp]
           y1 = object_info[tmp+1]
           r1 = object_info[tmp+2]
-          boundary_sphere =\
+          boundary_circle =\
                    'near((x[0]-x1)*(x[0]-x1)+(x[1]-y1)*(x[1]-y1), r1*r1, tol)'
-          boundary_sphere =\
-               CompiledSubDomain(boundary_sphere, x1 = x1, y1 = y1, r1 = r1, tol=1E-2)
-          boundary_sphere.mark(facet_f, i)
+          boundary_circle =CompiledSubDomain(boundary_circle,
+                                             x1 = x1, y1 = y1,
+                                             r1 = r1, tol=1E-2)
+          boundary_circle.mark(facet_f, i)
           tmp += 3
+    return facet_f
+
+def mark_spherical_objects(facet_f, object_info, n_components):
+    if n_components > 1:
+      tmp = 4
+      for i in range(2, n_components+1):
+          x1 = object_info[tmp]
+          y1 = object_info[tmp+1]
+          z1 = object_info[tmp+2]
+          r1 = object_info[tmp+3]
+          boundary_sphere =\
+         'near((x[0]-x1)*(x[0]-x1)+(x[1]-y1)*(x[1]-y1)+(x[2]-z1)*(x[2]-z1), r1*r1, tol)'
+          boundary_sphere = CompiledSubDomain(boundary_sphere,
+                                              x1 = x1, y1 = y1,
+                                              z1 = z1, r1 = r1, tol=1E-2)
+          boundary_sphere.mark(facet_f, i)
+          tmp += 4
+    return facet_f
+
+def mark_cylindrical_objects(facet_f, object_info, n_components, h2):
+    if n_components > 1:
+      tmp = 4
+      for i in range(2, n_components+1):
+          x1 = object_info[tmp]
+          y1 = object_info[tmp+1]
+          r1 = object_info[tmp+2]
+          h1 = object_info[tmp+3]
+          z0 = (h2-h1)/2.      # Bottom point of cylinder
+          z1 = (h2+h1)/2.      # Top point of cylinder
+          boundary_cylinder = 'near(x[2],z0,tol)' and 'near(x[2],z1,tol)' and \
+                   'near((x[0]-x1)*(x[0]-x1)+(x[1]-y1)*(x[1]-y1), r1*r1, tol)'
+          boundary_cylinder =\
+               CompiledSubDomain(boundary_cylinder, x1 = x1, y1 = y1, r1 = r1,
+                                                   z0 = z0, z1= z1, tol=1E-2)
+          boundary_cylinder.mark(facet_f, i)
+          tmp += 4
 
     return facet_f
 
-def mark_boundaries(mesh, domain_info, object_info, n_components):
+def mark_boundaries(mesh, domain_info, object_type, object_info, n_components):
     facet_f = FacetFunction('size_t', mesh, 0)
     DomainBoundary().mark(facet_f, 1)
-    facet_f = mark_spherical_objects(facet_f, object_info, n_components)
+    if n_components > 1:
+        if object_type == 'multi_circles':
+            facet_f = mark_circular_objects(facet_f, object_info, n_components)
+        elif object_type == 'multi_spheres':
+            facet_f = mark_spherical_objects(facet_f, object_info, n_components)
+        elif object_type == 'multi_cylinders':
+            h2 = mesh.coordinates()[:,2].max()
+            facet_f = mark_cylindrical_objects(facet_f, object_info,
+                                               n_components, h2)
     facet_f = mark_outer_boundary(facet_f, domain_info, n_components)
     return facet_f
 
 if __name__ == '__main__':
 
     n_components = 4
+    object_type = 'multi_circles'
     mesh = Mesh("demos/mesh/circuit.xml")
     d = mesh.topology().dim()
     L = np.empty(2*d)
@@ -110,7 +156,7 @@ if __name__ == '__main__':
             object_info = [x0, y0, r0, x1, y1, r1,
                            x2, y2, r2, x3, y3, r3]
     elif d == 3:
-     object_info = [x0, y0, z0, r0, x1, y1, z1, r1]
+        object_info = [x0, y0, z0, r0, x1, y1, z1, r1]
 
-    facet_f = mark_boundaries(mesh, L, object_info, n_components)
+    facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
     plot(facet_f, interactive=True)

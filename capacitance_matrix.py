@@ -107,14 +107,16 @@ def circuits(inv_capacitance, circuits_info):
 
 if __name__=='__main__':
 
-    from get_object import *
     from mark_object import *
     from boundary_conditions import *
+    import sys
+    sys.path.insert(0, '/home/diako/Documents/FEniCS/demos')
+    from get_object import *
 
     dim = 2
     epsilon_0 = 1.0
     n_components = 4
-    object_type = 'multi_components'
+    object_type = 'multi_circles'
 
     circuits_info = [[1, 3], [2, 4]]
 
@@ -127,7 +129,7 @@ if __name__=='__main__':
         L[i] = l_min
         L[d+i] = l_max
     object_info = get_object(dim, object_type, n_components)
-    facet_f = mark_boundaries(mesh, L, object_info, n_components)
+    facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
     phi0 = Constant(0.0)
     V, VV, W, bcs_Dirichlet = dirichlet_bcs_zero_potential(phi0, mesh, facet_f,
                                                            n_components)

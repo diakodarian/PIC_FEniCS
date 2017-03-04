@@ -30,7 +30,7 @@ with_drift = True
 
 if with_object:
     # Options spherical_ or cylindrical_ or multi_components
-    object_type = 'multi_components'
+    object_type = 'multi_circles'
     initial_type = object_type
     if B_field:
         periodic_field_solver = False     # Periodic or Dirichlet bcs
@@ -79,7 +79,7 @@ else:
 #  3) Mark boundary adjacent cells
 #-------------------------------------------------------------------------------
 if with_object:
-    facet_f = mark_boundaries(mesh, L, object_info, n_components)
+    facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
     components_cells = object_cells(mesh, facet_f, n_components)
     components_vertices = object_vertices(facet_f, n_components)
     cell_domains = mark_boundary_adjecent_cells(mesh)
@@ -326,7 +326,7 @@ for i, step in enumerate(range(tot_time)):
     if data_to_file:
         lp.write_to_file(to_file)
 
-    lp.scatter_new(fig)
+    lp.scatter_new(fig, object_type)
     fig.suptitle('At step %d' % step)
     fig.canvas.draw()
 
