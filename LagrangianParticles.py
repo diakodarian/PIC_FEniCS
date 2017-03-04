@@ -782,7 +782,7 @@ class LagrangianParticles:
                                label='electrons',
                                marker = 'o',
                                c='b',
-                               s = 1,
+                               s = 3,
                                edgecolor='none')
             ax.legend(bbox_to_anchor=(1.09, 0.99))
             ax.axis([l_min, l_max, l_min, l_max])
@@ -827,8 +827,9 @@ class LagrangianParticles:
                     geo_dim = self.mesh.geometry().dim()
                     v_ions = np.array(ions)
                     v_electrons = np.array(electrons)
-                    alpha_i = np.std(v_ions, ddof=1)
+                    std_i = np.std(v_ions, ddof=1)
                     alpha_e = np.std(v_electrons, ddof=1)
+                    mu_i = np.mean()
                     speed_distribution(v_ions, geo_dim, alpha_i, 1)
                     speed_distribution(v_electrons, geo_dim, alpha_e, 0)
 
