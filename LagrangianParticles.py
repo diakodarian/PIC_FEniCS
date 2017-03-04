@@ -407,7 +407,10 @@ class LagrangianParticles:
 
                 if not self.B_field:
                     # leap frog step
-                    u[:] = u[:] + dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)[:]
+                    u[:] = u[:] +\
+                          dt*(particle.properties['q'] /\
+                          particle.properties['m']) *\
+                          np.dot(self.coefficients, self.basis_matrix)[:]
                 else:
                     # Boris step
                     assert self.dim == 3
@@ -702,7 +705,7 @@ class LagrangianParticles:
             ax.legend(loc='best')
             ax.axis([0, 1, 0, 1])
 
-    def scatter_new(self, fig, skip=1):
+    def scatter_new(self, fig, object_type, skip=1):
         'Scatter plot of all particles on process 0'
         import matplotlib.colors as colors
         import matplotlib.cm as cmx
@@ -744,18 +747,20 @@ class LagrangianParticles:
             scalarMap = cmx.ScalarMappable(norm=cnorm, cmap=cmap)
             l_min = self.mesh.coordinates()[:,0].min()
             l_max = self.mesh.coordinates()[:,1].max()
-            # theta goes from 0 to 2pi
-            theta = np.linspace(0, 2*np.pi, 100)
 
-            # the radius of the circle
-            r = np.sqrt(0.25)
+            if object_type is not None:
+                # theta goes from 0 to 2pi
+                theta = np.linspace(0, 2*np.pi, 100)
 
-            # compute x1 and x2
-            x1 = np.pi + r*np.cos(theta)
-            x2 = np.pi + r*np.sin(theta)
+                # the radius of the circle
+                r = np.sqrt(0.25)
 
-            ax.plot(x1, x2, c='k', linewidth=3)
-            ax.set_aspect(1)
+                # compute x1 and x2
+                x1 = np.pi + r*np.cos(theta)
+                x2 = np.pi + r*np.sin(theta)
+
+                ax.plot(x1, x2, c='k', linewidth=3)
+                ax.set_aspect(1)
 
             for proc in received_ions:
                 # Plot only if there is something to plot
@@ -769,6 +774,7 @@ class LagrangianParticles:
                                label='ions',
                                marker='o',
                                c='r',
+                               s = 1,
                                edgecolor='none')
                 if len(electrons) > 0:
                     xy_electrons = np.array(electrons)
@@ -776,6 +782,7 @@ class LagrangianParticles:
                                label='electrons',
                                marker = 'o',
                                c='b',
+                               s = 1,
                                edgecolor='none')
             ax.legend(bbox_to_anchor=(1.09, 0.99))
             ax.axis([l_min, l_max, l_min, l_max])

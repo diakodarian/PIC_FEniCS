@@ -1,4 +1,7 @@
-*.ipynb
 *.pyc
+output/
+sandbox/
 .ipynb_checkpoints/
-*.png
+.git/
+.cache/
+__pycache__/

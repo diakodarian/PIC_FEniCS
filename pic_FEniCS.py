@@ -301,19 +301,11 @@ for i, step in enumerate(range(tot_time)):
 
     # circuits:
     if with_circuits:
-        circuits_info = [[1, 3], [2, 4]]
         for k in range(len(circuits_info)):
             for l in circuits_info[k]:
                 bias_voltage[k,-1] += (q_object[l-1] - q_rho[l-1])
             for n,l in enumerate(circuits_info[k]):
                 q_object[l-1] = np.dot(inv_D[k], bias_voltage[k])[n] + q_rho[l-1]
-
-        # for k in circuits_info[0]:
-        #     bias_voltage[-1] += (q_object[k] - q_rho[k])
-        # for k in circuits_info[1]:
-        #     bias_voltage2[-1] += (q_object[k] - q_rho[k])
-        # # bias_voltage1[2] = np.sum(q_object[:-1]) - np.sum(q_rho[:-1])
-        # q_object[:-1] = np.dot(inv_D, bias_voltage1) + q_rho[:-1]
 
     # J_e = info[4]
     # J_i = info[5]
