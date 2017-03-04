@@ -1,6 +1,9 @@
 from __future__ import print_function
+import sys
+sys.path.insert(0, '/home/diako/Documents/FEniCS')
+
 from LagrangianParticles import LagrangianParticles
-from Poisson_solver import periodic_solver, dirichlet_solver, E_field
+from Poisson_solver import periodic_solver, dirichlet_solver, electric_field
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
 from mesh_types import *
@@ -228,7 +231,7 @@ if with_object and with_circuits:
 #             Plot and write to file
 #-------------------------------------------------------------------------------
 fig = plt.figure()
-lp.scatter_new(fig)
+lp.scatter_new(fig, object_type)
 fig.suptitle('Initial')
 
 data_to_file = True
@@ -236,7 +239,7 @@ data_to_file = True
 if comm.Get_rank() == 0:
     fig.show()
     if data_to_file:
-        to_file = open('data/dataB.xyz', 'w')
+        to_file = open('../output/data/sandbox_data/data.xyz', 'w')
         to_file.write("%d\n" %len(initial_positions))
         to_file.write("PIC \n")
         for p1, p2 in map(None,initial_positions[n_electrons:],
@@ -291,10 +294,10 @@ for i, step in enumerate(range(tot_time)):
         # boundary_values = bc_object.get_boundary_values()
         # print("boundary_values: ", boundary_values)
         phi = periodic_solver(rho, V, solver, bc_object)
-        E = E_field(phi, W)
+        E = electric_field(phi, W)
     else:
         phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
-        E = E_field(phi, W)
+        E = electric_field(phi, W)
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
     q_object = info[3]
@@ -327,7 +330,7 @@ for i, step in enumerate(range(tot_time)):
     fig.suptitle('At step %d' % step)
     fig.canvas.draw()
 
-    if (save and step%1==0): plt.savefig('img%s.png' % str(step).zfill(4))
+    if (save and step%1==0): plt.savefig('../output/Plots/sandbox_plots/img%s.png' % str(step).zfill(4))
 
     fig.clf()
     print("   ")
@@ -342,13 +345,13 @@ if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    to_file = open('data/energies.txt', 'w')
+    to_file = open('../output/data/sandbox_data/energies.txt', 'w')
     for i,j,k, l in zip(t, Ek, Ep, Et):
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
     #lp.particle_distribution()
-    File("Plots/rho.pvd") << rho
-    File("Plots/phi.pvd") << phi
-    File("Plots/E.pvd") << E
-    File("Plots/J_e.pvd") << J_e
-    File("Plots/J_i.pvd") << J_i
+    File("../output/Plots/sandbox_plots/rho.pvd") << rho
+    File("../output/Plots/sandbox_plots/phi.pvd") << phi
+    File("../output/Plots/sandbox_plots/E.pvd") << E
+    File("../output/Plots/sandbox_plots/J_e.pvd") << J_e
+    File("../output/Plots/sandbox_plots/J_i.pvd") << J_i

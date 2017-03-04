@@ -90,7 +90,7 @@ def mark_boundaries(mesh, domain_info, object_info, n_components):
 if __name__ == '__main__':
 
     n_components = 4
-    mesh = Mesh("mesh/circuit.xml")
+    mesh = Mesh("demos/mesh/circuit.xml")
     d = mesh.topology().dim()
     L = np.empty(2*d)
     for i in range(d):

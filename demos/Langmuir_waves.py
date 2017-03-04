@@ -3,11 +3,10 @@ import sys
 sys.path.insert(0, '/home/diako/Documents/FEniCS')
 
 from LagrangianParticles import LagrangianParticles
-from Poisson_solver import periodic_solver, E_field
+from Poisson_solver import periodic_solver, electric_field
 from initial_conditions import initial_conditions
-from particle_distribution import speed_distribution
-from mesh_types import *
-from boundary_conditions import *
+from mesh_types import simple_mesh
+from boundary_conditions import periodic_bcs
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
@@ -129,7 +128,7 @@ fig.suptitle('Initial')
 if comm.Get_rank() == 0:
     fig.show()
     if data_to_file:
-        to_file = open('../data/Langmuir_data/data.xyz', 'w')
+        to_file = open('../output/data/Langmuir_data/data.xyz', 'w')
         to_file.write("%d\n" %len(initial_positions))
         to_file.write("PIC \n")
         for p1, p2 in map(None,initial_positions[n_electrons:],
@@ -163,7 +162,7 @@ for i, step in enumerate(range(tot_time)):
     f = Function(V)
     rho, q_rho = lp.charge_density(f, components_vertices)
     phi = periodic_solver(rho, V, solver, None)
-    E = E_field(phi, W)
+    E = electric_field(phi, W)
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
 
@@ -187,7 +186,7 @@ for i, step in enumerate(range(tot_time)):
     fig.suptitle('At step %d' % step)
     fig.canvas.draw()
 
-    if (save and step%1==0): plt.savefig('../Plots/Langmuir_plots/img%s.png' % str(step).zfill(4))
+    if (save and step%1==0): plt.savefig('../output/Plots/Langmuir_plots/img%s.png' % str(step).zfill(4))
 
     fig.clf()
     print("   ")
@@ -202,11 +201,11 @@ if comm.Get_rank() == 0:
     if data_to_file:
         to_file.close()
 
-    to_file = open('../data/Langmuir_data/energies.txt', 'w')
+    to_file = open('../output/data/Langmuir_data/energies.txt', 'w')
     for i,j,k, l in zip(t, Ek, Ep, Et):
         to_file.write("%f %f %f %f\n" %(i, j, k, l))
     to_file.close()
     #lp.particle_distribution()
-    File("../Plots/Langmuir_plots/Lanmguir_rho.pvd") << rho
-    File("../Plots/Langmuir_plots/Langmuir_phi.pvd") << phi
-    File("../Plots/Langmuir_plots/Langmuir_E.pvd") << E
+    File("../output/Plots/Langmuir_plots/Lanmguir_rho.pvd") << rho
+    File("../output/Plots/Langmuir_plots/Langmuir_phi.pvd") << phi
+    File("../output/Plots/Langmuir_plots/Langmuir_E.pvd") << E
