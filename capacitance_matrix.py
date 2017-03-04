@@ -1,5 +1,6 @@
 from __future__ import print_function
 from Poisson_solver import dirichlet_solver, electric_field
+from boundary_conditions import dirichlet_bcs_zero_potential
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
@@ -7,16 +8,6 @@ from mpi4py import MPI as pyMPI
 import sys
 
 comm = pyMPI.COMM_WORLD
-
-def zero_Dircihlet_bcs(V, facet_f, n_components):
-    d = V.mesh().topology().dim()
-    # Outer boundary conditions
-    outer_Dirichlet_bcs = []
-    for i in range(2*d):
-        cap_bc0 = DirichletBC(V, Constant(0.0), facet_f, (n_components+i+1))
-        outer_Dirichlet_bcs.append(cap_bc0)
-
-    return outer_Dirichlet_bcs
 
 def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
     # Solve Laplace equation for each electrical component
@@ -42,7 +33,7 @@ def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
     return E_object
 
 def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
-    outer_Dirichlet_bcs = zero_Dircihlet_bcs(V, facet_f, n_components)
+    outer_Dirichlet_bcs = dirichlet_bcs_zero_potential(V, facet_f, n_components)
     E_object = solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs)
 
     ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
@@ -108,7 +99,6 @@ def circuits(inv_capacitance, circuits_info):
 if __name__=='__main__':
 
     from mark_object import *
-    from boundary_conditions import *
     import sys
     sys.path.insert(0, '/home/diako/Documents/FEniCS/demos')
     from get_object import *
@@ -121,6 +111,10 @@ if __name__=='__main__':
     circuits_info = [[1, 3], [2, 4]]
 
     mesh = Mesh("demos/mesh/circuit.xml")
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
+
     d = mesh.topology().dim()
     L = np.empty(2*d)
     for i in range(d):
@@ -130,9 +124,6 @@ if __name__=='__main__':
         L[d+i] = l_max
     object_info = get_object(dim, object_type, n_components)
     facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
-    phi0 = Constant(0.0)
-    V, VV, W, bcs_Dirichlet = dirichlet_bcs_zero_potential(phi0, mesh, facet_f,
-                                                           n_components)
     capacitance, inv_capacitance = capacitance_matrix(V, W, mesh, facet_f,
                                                       n_components, epsilon_0)
 

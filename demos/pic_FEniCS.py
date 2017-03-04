@@ -164,17 +164,15 @@ if with_object:
 if periodic_field_solver:
     V, VV, W = periodic_bcs(mesh, L)
 else:
+    # Create dolfin function spaces
+    V = FunctionSpace(mesh, "CG", 1)
+    VV = VectorFunctionSpace(mesh, "CG", 1)
+    W = VectorFunctionSpace(mesh, 'DG', 0)
     if B_field:
-        V, VV, W, bcs_Dirichlet = dirichlet_bcs_B_field(E0,
-                                                        mesh,
-                                                        facet_f,
-                                                        n_components)
+        bcs_Dirichlet = dirichlet_bcs_B_field(E0, V, facet_f, n_components)
 
     else:
-        phi0 = Constant(0.0)
-        V, VV, W, bcs_Dirichlet = dirichlet_bcs_zero_potential(phi0, mesh,
-                                                               facet_f,
-                                                               n_components)
+        bcs_Dirichlet = dirichlet_bcs_zero_potential(V, facet_f, n_components)
 
 
 #-------------------------------------------------------------------------------
