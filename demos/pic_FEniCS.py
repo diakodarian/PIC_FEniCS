@@ -11,7 +11,7 @@ from capacitance_matrix import capacitance_matrix, circuits
 from boundary_conditions import *
 from mark_object import *
 from get_object import *
-from initialize_particle_injection import *
+from particle_injection import initialize_particle_injection
 import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np

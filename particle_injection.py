@@ -337,6 +337,44 @@ def inject_particles(L, count_e, count_i,
 
     return pos, vel, p_properties, n_electrons, n_ions
 
+def initialize_particle_injection(L, dt, n_plasma, sigma_e, sigma_i, vd):
+    d = len(L)/2
+    if d == 2:
+        A_surface = L[d]
+    if d == 3:
+        A_surface = L[d]*L[d+1]
+    # The unit vector normal to outer boundary surfaces
+    print("A: ", A_surface)
+    unit_vec = np.identity(d)
+    # Normal components of drift velocity
+    vd_normal = np.empty(2*d)
+    s = -1 # To insure normal vectors point outward from the domain
+    j = 0
+    for i in range(2*d):
+        si = s**i
+        if np.sign(si) == -1:
+            j += 1
+        vd_normal[i] = np.dot(vd, si*unit_vec[i-j])
+
+    count_e = []
+    count_i = []
+    for i in range(2*d):
+        count_e.append(num_particles(A_surface, dt, n_plasma,
+                                     vd_normal[i], sigma_e[0]))
+        count_i.append(num_particles(A_surface, dt, n_plasma,
+                                     vd_normal[i], sigma_i[0]))
+
+    diff_e = [(i - int(i)) for i in count_e]
+    diff_i = [(i - int(i)) for i in count_i]
+
+    count_e = [int(i) for i in count_e]
+    count_i = [int(i) for i in count_i]
+
+    count_e[0] += int(sum(diff_e))
+    count_i[0] += int(sum(diff_i))
+
+    return count_e, count_i
+
 if __name__ == '__main__':
 
     from particle_distribution import speed_distribution, hist_plot
@@ -351,12 +389,13 @@ if __name__ == '__main__':
     L2d = [l1, w1, l2, w2]
     L3d = [l1,w1,h1,l2,w2,h2]
 
-    dt = 0.1
+    dt = 0.251327
+    n_plasma = 257.922669822
     alpha_e = 1.
     alpha_i = 1.
 
-    test_2d = True
-    test_3d = False
+    test_2d = False
+    test_3d = True
     test_random_velocities = False
 
     # Random velocities test
@@ -382,38 +421,13 @@ if __name__ == '__main__':
         mu_i = [5.,0.]
         sigma_e = [alpha_e, alpha_e]
         sigma_i = [alpha_i, alpha_i]
-        # Normal unit surface vectors
-        n0 = np.array([1, 0])
-        n1 = np.array([-1, 0])
-        n2 = np.array([0, 1])
-        n3 = np.array([0, -1])
-        # Normal components of velocity
-        v_n0 = np.dot(vd, n0)
-        v_n1 = np.dot(vd, n1)
-        v_n2 = np.dot(vd, n2)
-        v_n3 = np.dot(vd, n3)
 
-        v_n = np.array([v_n0,v_n1,v_n2,v_n3])
-
-        A = l2
-        n_p = 10   # plasma density
-        count_e = []
-        count_i = []
-        for i in range(len(v_n)):
-            count_e.append(num_particles(A, dt, n_p, v_n[i], sigma_e[0]))
-            count_i.append(num_particles(A, dt, n_p, v_n[i], sigma_i[0]))
-
-        print("nums: ", count_e, "   ", count_i)
-        count_e = [int(i) for i in count_e]
-        count_i = [int(i) for i in count_i]
-        print("nums: ", count_e, "   ", count_i)
-
-        #count_e = [1, 2, 3, 4]
-        #count_i = [2, 3, 4, 5]
+        n_inj_e, n_inj_i = initialize_particle_injection(L2d, dt, n_plasma,
+                                                         sigma_e, sigma_i, vd)
         p, vel, n_electrons, n_ions = \
-        inject_particles_2d(L2d, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt)
+        inject_particles_2d(L2d, n_inj_e, n_inj_i, mu_e, mu_i, sigma_e, sigma_i, dt)
 
-        print(np.sum(count_e), n_electrons, "      ", np.sum(count_i),n_ions)
+        print(np.sum(n_inj_e), n_electrons, "      ", np.sum(n_inj_i),n_ions)
 
         import matplotlib.colors as colors
         import matplotlib.cm as cmx
@@ -441,48 +455,19 @@ if __name__ == '__main__':
 
     # 3D test:
     if test_3d:
-        mu_e = [0.0,0.,0.]
-        mu_i = [0.0,0.,0.]
+        mu_e = [0.1,0.,0.]
+        mu_i = [0.1,0.,0.]
         sigma_e = [alpha_e, alpha_e, alpha_e]
         sigma_i = [alpha_i, alpha_i, alpha_i]
 
-        vd = np.array([.0, 0., 0.])  # Drift velocity of the plasma particles
+        vd = np.array([.1, 0., 0.])  # Drift velocity of the plasma particles
 
-        # Normal unit surface vectors
-        n0 = np.array([1, 0, 0])
-        n1 = np.array([-1, 0, 0])
-        n2 = np.array([0, 1, 0])
-        n3 = np.array([0, -1, 0])
-        n4 = np.array([0, 0, 1])
-        n5 = np.array([0, 0, -1])
-        # Normal components of velocity
-        v_n0 = np.dot(vd, n0)
-        v_n1 = np.dot(vd, n1)
-        v_n2 = np.dot(vd, n2)
-        v_n3 = np.dot(vd, n3)
-        v_n4 = np.dot(vd, n4)
-        v_n5 = np.dot(vd, n5)
+        n_inj_e, n_inj_i = initialize_particle_injection(L3d, dt, n_plasma,
+                                                         sigma_e, sigma_i, vd)
 
-        v_n = np.array([v_n0,v_n1,v_n2,v_n3,v_n4,v_n5])
-
-        A = l2**2
-        n_p = 4   # plasma density
-        count_e = []
-        count_i = []
-        for i in range(len(v_n)):
-            count_e.append(num_particles(A, dt, n_p, v_n[i], sigma_e[0]))
-            count_i.append(num_particles(A, dt, n_p, v_n[i], sigma_i[0]))
-
-        print("nums: ", count_e, "   ", count_i)
-        count_e = [int(i) for i in count_e]
-        count_i = [int(i) for i in count_i]
-        print("nums: ", count_e, "   ", count_i)
-
-        #count_e = [2,2,3,2,2,2]
-        #count_i = [2,2,3,2,2,2]
-
+        print("number of particles: ", n_inj_e, "   ", n_inj_i)
         p, vel, n_electrons, n_ions =\
-        inject_particles_3d(L3d, count_e, count_i, mu_e, mu_i, sigma_e, sigma_i, dt)
+        inject_particles_3d(L3d, n_inj_e, n_inj_i, mu_e, mu_i, sigma_e, sigma_i, dt)
 
         # speed_distribution(vel[:n_electrons], mu_e, sigma_e)
 
