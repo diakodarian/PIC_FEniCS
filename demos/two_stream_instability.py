@@ -12,6 +12,7 @@ from dolfin import *
 import numpy as np
 from mpi4py import MPI as pyMPI
 import itertools
+from scipy.fftpack import fft, rfft, irfft
 
 comm = pyMPI.COMM_WORLD
 
@@ -42,7 +43,7 @@ mesh, L = simple_mesh(d, l1, l2, w1, w2, h1, h2)
 #-------------------------------------------------------------------------------
 n_pr_cell = 8             # Number of particels per cell
 n_pr_super_particle = 8   # Number of particles per super particle
-tot_time = 10             # Total simulation time
+tot_time = 20             # Total simulation time
 dt = 0.251327             # Time step
 
 tot_volume = assemble(1*dx(mesh)) # Volume of simulation domain
@@ -58,8 +59,8 @@ n_plasma = N_e/tot_volume   # Plasma density
 
 epsilon_0 = 1.              # Permittivity of vacuum
 mu_0 = 1.                   # Permeability of vacuum
-T_e = 1.                    # Temperature - electrons
-T_i = 1.e-7                    # Temperature - ions
+T_e = 1.e-2                    # Temperature - electrons
+T_i = 1.e-2                    # Temperature - ions
 kB = 1.                     # Boltzmann's constant
 e = 1.                      # Elementary charge
 Z = 1                       # Atomic number

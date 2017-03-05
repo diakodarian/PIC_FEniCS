@@ -391,14 +391,32 @@ def two_stream_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i, L,
         i_velocity[:,i] = np.random.normal(mu_i[i], sigma_i[i], n_ions)
 
     pos_e = initial_positions[:n_electrons]
+    s1 = 0
+    s2 = 0
     for i in range(n_electrons):
         if pos_e[i,d-1] >= L[d+1]/2.:
+            s1 +=1
             for j in range(d):
                 e_velocity[i, j] = np.random.normal(mu_e[0][j], sigma_e[j])
         elif pos_e[i,d-1] < L[d+1]/2.:
+            s2 += 1
             for j in range(d):
                 e_velocity[i, j] = np.random.normal(mu_e[1][j], sigma_e[j])
 
+    # vel_top = np.empty((s1,d))
+    # vel_bottom = np.empty((s2,d))
+    # s1 = 0
+    # s2 = 0
+    # for i in range(n_electrons):
+    #     if pos_e[i,d-1] >= L[d+1]/2.:
+    #         vel_top[s1,:] = e_velocity[i, :]
+    #         s1 += 1
+    #     elif pos_e[i,d-1] < L[d+1]/2.:
+    #         vel_bottom[s2,:] = e_velocity[i, :]
+    #         s2 += 1
+    # print(vel_top)
+    # #speed_distribution(vel_top, mu_e[0], sigma_e)
+    # # speed_distribution(vel_bottom, mu_e[1], sigma_e)
     return e_velocity, i_velocity
 
 def object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):

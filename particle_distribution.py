@@ -20,7 +20,8 @@ def integration(u, mu, sigma):
     f = np.zeros(len(u))
     for i in range(len(u)):
         v = u[i]
-        f[i] = integrate.quad(lambda x: np.exp(v*mu*np.cos(x)/sigma**2), 0., 2*np.pi)[0]
+        f[i] = integrate.quad(lambda x: np.exp(v*mu*np.cos(x)/sigma**2),
+                              0., 2*np.pi)[0]
     return f
 
 def gaussian_distribution(v, mu, sigma):
@@ -45,12 +46,15 @@ def boltzmann_distribution(v, mu, sigma, d):
         if mu == 0:
             return (v/sigma**2)*np.exp( - v**2 / (2.*sigma**2) )
         else:
-            return (v/(2.*np.pi*sigma**2))*(np.exp( - (v**2 + mu**2) / (2.*sigma**2)))*integration(v,mu,sigma)
+            return (v/(2.*np.pi*sigma**2))*(np.exp( - (v**2 + mu**2) /\
+                                         (2.*sigma**2)))*integration(v,mu,sigma)
     if d == 3:
         if mu == 0:
-            return 4.*np.pi*(v)**2/(sigma*np.sqrt(2 * np.pi))**3*np.exp( - (v - mu)**2 / (2.*sigma**2) )
+            return 4.*np.pi*(v)**2/(sigma*np.sqrt(2 * np.pi))**3*\
+                                         np.exp( - (v - mu)**2 / (2.*sigma**2) )
         else:
-            return (v/mu)*(1./(np.sqrt(2*np.pi)*sigma))*(np.exp( - (v - mu)**2 / (2.*sigma**2)) - np.exp( - (v + mu)**2 / (2.*sigma**2) ))
+            return (v/mu)*(1./(np.sqrt(2*np.pi)*sigma))*(np.exp(- (v - mu)**2 /\
+                       (2.*sigma**2)) - np.exp( - (v + mu)**2 / (2.*sigma**2) ))
 
 def hist_plot(v, mu, sigma, d, distribution, n_bins, file_name):
     """
@@ -79,7 +83,7 @@ def hist_plot(v, mu, sigma, d, distribution, n_bins, file_name):
 def speed_distribution(v, mu, sigma, ions=0):
     """
     This function takes a velocity vector (2D or 3D) and plots both the
-    distribution of each velocity component, v_i, and the distribution of the
+    distribution of each velocity component, $v_i$, and the distribution of the
     speed,
 
                         v = \sqrt{\sum_{0}{d}v_i^2},
@@ -112,7 +116,8 @@ def speed_distribution(v, mu, sigma, ions=0):
     mu_speed = np.sqrt(np.dot(mu,mu)) # Drift velocity
     assert all(i == sigma[0] for i in sigma)
 
-    hist_plot(v_sqrt, mu_speed, sigma[0], d, 'Boltzmann', n_bins, file_names[-1])
+    hist_plot(v_sqrt, mu_speed, sigma[0], d,
+              'Boltzmann', n_bins, file_names[-1])
 
 
 if __name__ == '__main__':
@@ -128,7 +133,7 @@ if __name__ == '__main__':
 
     test_2d = True
     test_3d = False
-    
+
     # 2D test
     if test_2d:
         d = 2
@@ -140,7 +145,9 @@ if __name__ == '__main__':
                 sigma_ = sigma[k]
                 velocities = np.empty((n_particles,d))
                 for i in range(d):
-                    velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
+                    velocities[:,i] = np.random.normal(mu_[i],
+                                                       sigma_[i],
+                                                       n_particles)
                 speed_distribution(velocities, mu_, sigma_)
 
     # 3D test
@@ -154,6 +161,8 @@ if __name__ == '__main__':
                 sigma_ = sigma[k]
                 velocities = np.empty((n_particles,d))
                 for i in range(d):
-                    velocities[:,i] = np.random.normal(mu_[i], sigma_[i], n_particles)
+                    velocities[:,i] = np.random.normal(mu_[i],
+                                                       sigma_[i],
+                                                       n_particles)
                 speed_distribution(velocities, mu_, sigma_)
     plt.show()

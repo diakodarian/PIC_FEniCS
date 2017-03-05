@@ -208,12 +208,8 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #             The capacitance matrix of the object
 #-------------------------------------------------------------------------------
 if with_object:
-    capacitance, inv_capacitance = capacitance_matrix(V,
-                                                      W,
-                                                      mesh,
-                                                      facet_f,
-                                                      n_components,
-                                                      epsilon_0)
+    inv_capacitance = capacitance_matrix(V, W, mesh, facet_f, n_components,
+                                         epsilon_0)
 
 #-------------------------------------------------------------------------------
 #          Circuit Components and Differential Biasing
@@ -224,7 +220,7 @@ if with_object and with_circuits:
     bias_1 = 0.1
     bias_2 = 0.2
     bias_voltage = np.array([[bias_1, 0.0],[bias_2, 0.0]])
-    D, inv_D = circuits(inv_capacitance, circuits_info)
+    inv_D = circuits(inv_capacitance, circuits_info)
 #-------------------------------------------------------------------------------
 #             Plot and write to file
 #-------------------------------------------------------------------------------

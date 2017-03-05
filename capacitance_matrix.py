@@ -1,15 +1,25 @@
 from __future__ import print_function
 from Poisson_solver import dirichlet_solver, electric_field
 from boundary_conditions import dirichlet_bcs_zero_potential
-import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
-from mpi4py import MPI as pyMPI
-import sys
-
-comm = pyMPI.COMM_WORLD
 
 def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
+    """ This function solves Laplace's equation, $\del^2\varPhi = 0$, for each
+    surface component j with boundary condition $\varPhi = 1V$ on component j
+    and $\varPhi=0$ on every other component, including the outer boundaries.
+
+    Args:
+         V           : FunctionSpace = FunctionSpace(mesh, "CG", 1)
+         W           : VectorFunctionSpace(mesh, 'DG', 0)
+         facet_f     : contains the facets of each surface component
+         n_components: number of surface components
+         outer_Dirichlet_bcs: Dirichlet boundary condition, $\varPhi=0$, at the
+                              outer simulation domain
+
+    returns:
+            A list of calculated electric fields for every surface componet.
+    """
     # Solve Laplace equation for each electrical component
     E_object = []
     for i in range(n_components):
@@ -33,19 +43,42 @@ def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
     return E_object
 
 def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
+    """ This function calculates the mutual capacitance matrix, $C_{i,j}$.
+    The elements of mutual capacitance matrix are given by:
+
+     C_{i,j} = \epsilon_0\int_{\Omega_i}\mathbf{E}_{j}\cdot\hat{n}_i d\sigma_i.
+
+     For each surface component j, Laplace's equation, $\del^2\varPhi = 0$, is
+     solved with boundary condition $\varPhi = 1V$ on component j and
+     $\varPhi=0$ on every other component, including the outer boundaries.
+
+
+    Args:
+         V           : FunctionSpace = FunctionSpace(mesh, "CG", 1)
+         W           : VectorFunctionSpace(mesh, 'DG', 0)
+         mesh        : the mesh of the simulation domain
+         facet_f     : contains the facets of each surface component
+         n_components: number of surface components
+         epsilon_0   : Permittivity of vacuum
+
+    returns:
+            The inverse of the mutual capacitance matrix
+    """
     outer_Dirichlet_bcs = dirichlet_bcs_zero_potential(V, facet_f, n_components)
-    E_object = solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs)
+    E_object = solve_electric_field(V, W, facet_f, n_components,
+                                    outer_Dirichlet_bcs)
 
     ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
     n = FacetNormal(mesh)
     capacitance = np.empty((n_components, n_components))
     for i in range(n_components):
         for j in range(n_components):
-            capacitance[i,j] = epsilon_0*assemble(inner(E_object[j], -1*n)*ds(i+1))
+            capacitance[i,j] = epsilon_0*\
+                               assemble(inner(E_object[j], -1*n)*ds(i+1))
 
     inv_capacitance = np.linalg.inv(capacitance)
     print("                               ")
-    print("Capacitance matrix:            ")
+    print("Mutual capacitance matrix:     ")
     print("                               ")
     print(capacitance)
     print("-------------------------------")
@@ -56,11 +89,29 @@ def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
     print("-------------------------------")
     print("                               ")
 
-    return capacitance, inv_capacitance
+    return inv_capacitance
 
 
 def circuits(inv_capacitance, circuits_info):
+    """ This function calculates the matrix $D_{\gamma}$ for potential biases
+    between different surface components in each disjoint circuit. Each circuit
+    $\gamma$ can contain $n_{\gamma}$ componets indexed $c_{\gamma,l}$ with
+    $1\leq l \geq n_{\gamma}$. The matrix $D_{\gamma}$ is given by
 
+    D_{\gamma,i,j} =  C^{-1}_{c_{\gamma,i},c_{\gamma,j}} -
+                      C^{-1}_{c_{\gamma,0},c_{\gamma,j}}
+
+    Args:
+         inv_capacitance: Inverse of mutual capacitance matrix
+         circuits_info  : A list of all disjoint circuits. Each circuit is
+                          composed of different surface components, and each
+                          surface component is represented by an integer which
+                          corresponds to the number given to the facets of that
+                          component.
+
+    returns:
+            A list of the inverse of the matrix $D_{\gamma}$, for all circuits.
+    """
     tmp1 = []
     tmp2 = []
     for i in range(len(circuits_info)):
@@ -94,7 +145,7 @@ def circuits(inv_capacitance, circuits_info):
     print(inv_D_matrices)
     print("------------------------------------------")
     print("                                          ")
-    return D_matrices, inv_D_matrices
+    return inv_D_matrices
 
 if __name__=='__main__':
 
@@ -124,7 +175,7 @@ if __name__=='__main__':
         L[d+i] = l_max
     object_info = get_object(dim, object_type, n_components)
     facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
-    capacitance, inv_capacitance = capacitance_matrix(V, W, mesh, facet_f,
-                                                      n_components, epsilon_0)
+    inv_capacitance = capacitance_matrix(V, W, mesh, facet_f,
+                                         n_components, epsilon_0)
 
-    D, inv_D = circuits(inv_capacitance, circuits_info)
+    inv_D = circuits(inv_capacitance, circuits_info)
