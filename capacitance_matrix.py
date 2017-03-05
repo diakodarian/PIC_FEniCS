@@ -10,7 +10,7 @@ def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
     and $\varPhi=0$ on every other component, including the outer boundaries.
 
     Args:
-         V           : FunctionSpace = FunctionSpace(mesh, "CG", 1)
+         V           : FunctionSpace(mesh, "CG", 1)
          W           : VectorFunctionSpace(mesh, 'DG', 0)
          facet_f     : contains the facets of each surface component
          n_components: number of surface components
@@ -54,7 +54,7 @@ def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
 
 
     Args:
-         V           : FunctionSpace = FunctionSpace(mesh, "CG", 1)
+         V           : FunctionSpace(mesh, "CG", 1)
          W           : VectorFunctionSpace(mesh, 'DG', 0)
          mesh        : the mesh of the simulation domain
          facet_f     : contains the facets of each surface component
