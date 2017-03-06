@@ -16,7 +16,7 @@ def periodic_bcs(mesh, l):
     class PeriodicBoundary2D(SubDomain):
 
         def __init__(self, L):
-            dolfin.SubDomain.__init__(self)
+            SubDomain.__init__(self)
             self.Lx_left = L[0]
             self.Lx_right = L[2]
             self.Ly_left = L[1]
@@ -42,7 +42,7 @@ def periodic_bcs(mesh, l):
     class PeriodicBoundary3D(SubDomain):
 
         def __init__(self, L):
-            dolfin.SubDomain.__init__(self)
+            SubDomain.__init__(self)
             self.Lx_left = L[0]
             self.Lx_right = L[3]
             self.Ly_left = L[1]
@@ -90,46 +90,21 @@ def periodic_bcs(mesh, l):
         PBC = PeriodicBoundary2D(l)
     if geo_dim == 3:
         PBC = PeriodicBoundary3D(l)
-    V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
-    VV = VectorFunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
-    W = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
-    return V, VV, W
+    return PBC
 
-def dirichlet_bcs(u_D, mesh, degree = 1):
-    # Create dolfin function spaces
-    V = FunctionSpace(mesh, "CG", 1)
-    VV = VectorFunctionSpace(mesh, "CG", 1)
-    W = VectorFunctionSpace(mesh, 'DG', 0)
+def dirichlet_bcs(V, facet_f, n_components = 0, phi0 = Constant(0.0), E0 = None):
 
-    # Create Dirichlet boundary condition
-    def boundary(x, on_boundary):
-      return on_boundary
-
-    bc = DirichletBC(V, u_D, boundary)
-    return bc, V, VV, W
-
-def dirichlet_bcs_zero_potential(V, facet_f, n_components):
-    d = V.mesh().topology().dim()
-    bcs_Dirichlet = []
+    d = V.mesh().geometry().dim()
+    if E0 is not None:
+        if d == 2:
+            phi0 = 'x[0]*Ex + x[1]*Ey'
+            phi0 = Expression(phi0, degree = 1, Ex = -E0[0], Ey = -E0[1])
+        if d == 3:
+            phi0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
+            phi0 = Expression(phi0, degree = 1,
+                              Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
+    bcs = []
     for i in range(2*d):
-        bc0 = DirichletBC(V, Constant(0.0), facet_f, (n_components+i+1))
-        bcs_Dirichlet.append(bc0)
-
-    return bcs_Dirichlet
-
-def dirichlet_bcs_B_field(E0, V, facet_f, n_components):
-    d = V.mesh().topology().dim()
-    if d == 2:
-        phi_0 = 'x[0]*Ex + x[1]*Ey'
-        phi_l = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1])
-    if d == 3:
-        phi_0 = 'x[0]*Ex + x[1]*Ey + x[2]*Ez'
-        phi_l = Expression(phi_0, degree=1, Ex = -E0[0], Ey = -E0[1], Ez = -E0[2])
-
-
-    bcs_Dirichlet = []
-    for i in range(2*d):
-        bc0 = DirichletBC(V, phi_l, facet_f, (n_components+i+1))
-        bcs_Dirichlet.append(bc0)
-
-    return bcs_Dirichlet
+        bc0 = DirichletBC(V, phi0, facet_f, (n_components+i+1))
+        bcs.append(bc0)
+    return bcs

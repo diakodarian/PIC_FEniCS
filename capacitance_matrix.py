@@ -1,10 +1,10 @@
 from __future__ import print_function
-from Poisson_solver import dirichlet_solver, electric_field
-from boundary_conditions import dirichlet_bcs_zero_potential
+from Poisson_solver import *
+from boundary_conditions import dirichlet_bcs
 from dolfin import *
 import numpy as np
 
-def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
+def solve_electric_field(V, facet_f, n_components, outer_Dirichlet_bcs):
     """ This function solves Laplace's equation, $\del^2\varPhi = 0$, for each
     surface component j with boundary condition $\varPhi = 1V$ on component j
     and $\varPhi=0$ on every other component, including the outer boundaries.
@@ -21,9 +21,11 @@ def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
             A list of calculated electric fields for every surface componet.
     """
     # Solve Laplace equation for each electrical component
+    poisson = PoissonSolverDirichlet(V, outer_Dirichlet_bcs)
+
     E_object = []
     for i in range(n_components):
-        bc_object = []
+        object_bcs = []
         for j in range(n_components):
             # Object boundary value
             # 1 at i = j and 0 at the others
@@ -32,17 +34,18 @@ def solve_electric_field(V, W, facet_f, n_components, outer_Dirichlet_bcs):
             else:
                 c = Constant(0.0)
             bc_j = DirichletBC(V, c, facet_f, j+1) # facet indexing starts at 1
-            bc_object.append(bc_j)
+            object_bcs.append(bc_j)
 
         # Source term: 0 everywhere
-        f = Function(V)
-        phi = dirichlet_solver(f, V, outer_Dirichlet_bcs, bc_object)
-        E = electric_field(phi, W)
+        rho = Function(V)
+        phi = poisson.solve(rho, object_bcs)
+        E = electric_field(phi)
+        plot(phi, interactive=True)
         E_object.append(E)
 
     return E_object
 
-def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
+def capacitance_matrix(V, mesh, facet_f, n_components, epsilon_0):
     """ This function calculates the mutual capacitance matrix, $C_{i,j}$.
     The elements of mutual capacitance matrix are given by:
 
@@ -64,8 +67,8 @@ def capacitance_matrix(V, W, mesh, facet_f, n_components, epsilon_0):
     returns:
             The inverse of the mutual capacitance matrix
     """
-    outer_Dirichlet_bcs = dirichlet_bcs_zero_potential(V, facet_f, n_components)
-    E_object = solve_electric_field(V, W, facet_f, n_components,
+    outer_Dirichlet_bcs = dirichlet_bcs(V, facet_f, n_components)
+    E_object = solve_electric_field(V, facet_f, n_components,
                                     outer_Dirichlet_bcs)
 
     ds = Measure('ds', domain = mesh, subdomain_data = facet_f)
@@ -163,19 +166,26 @@ if __name__=='__main__':
 
     mesh = Mesh("demos/mesh/circuit.xml")
     V = FunctionSpace(mesh, "CG", 1)
-    VV = VectorFunctionSpace(mesh, "CG", 1)
-    W = VectorFunctionSpace(mesh, 'DG', 0)
 
-    d = mesh.topology().dim()
+    d = mesh.geometry().dim()
     L = np.empty(2*d)
     for i in range(d):
         l_min = mesh.coordinates()[:,i].min()
         l_max = mesh.coordinates()[:,i].max()
         L[i] = l_min
         L[d+i] = l_max
-    object_info = get_object(dim, object_type, n_components)
-    facet_f = mark_boundaries(mesh, L, object_type, object_info, n_components)
-    inv_capacitance = capacitance_matrix(V, W, mesh, facet_f,
-                                         n_components, epsilon_0)
+    object_info = get_object(dim,
+                             object_type,
+                             n_components)
+    facet_f = mark_boundaries(mesh,
+                              L,
+                              object_type,
+                              object_info,
+                              n_components)
+    inv_capacitance = capacitance_matrix(V,
+                                         mesh,
+                                         facet_f,
+                                         n_components,
+                                         epsilon_0)
 
     inv_D = circuits(inv_capacitance, circuits_info)

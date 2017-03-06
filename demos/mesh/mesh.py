@@ -3,7 +3,7 @@ import numpy as np
 
 # Here mesh.xml is obtained by `gmsh -2 mesh.geo` and
 # `dolfin-convert mesh.msh mesh.xml`
-mesh = Mesh('circle.xml')
+mesh = Mesh('rectangle_periodic.xml')
 plot(mesh, interactive=True)
 x = mesh.coordinates().reshape((-1, 2))
 xmin, ymin = np.min(x, 0)

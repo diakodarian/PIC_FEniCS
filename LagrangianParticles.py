@@ -414,7 +414,9 @@ class LagrangianParticles:
                 else:
                     # Boris step
                     assert self.dim == 3
-                    t = np.tan(particle.properties['q']*dt/(2.*particle.properties['m'])*B)
+
+                    tmp = [particle.properties['q']*dt/(2.*particle.properties['m'])*i for i in B]
+                    t = np.tan(tmp)
                     s = 2.*t/(1.+t[0]**2+t[1]**2+t[2]**2)
                     v_minus = u + 0.5*dt*(particle.properties['q']/particle.properties['m'])*np.dot(self.coefficients, self.basis_matrix)
                     v_minus_cross_t = np.cross(v_minus, t)

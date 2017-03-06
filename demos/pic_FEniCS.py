@@ -3,7 +3,7 @@ import sys
 sys.path.insert(0, '/home/diako/Documents/FEniCS')
 
 from LagrangianParticles import LagrangianParticles
-from Poisson_solver import periodic_solver, dirichlet_solver, electric_field
+from Poisson_solver import *
 from initial_conditions import initial_conditions
 from particle_distribution import speed_distribution
 from mesh_types import *
@@ -30,7 +30,7 @@ with_drift = True
 
 if with_object:
     # Options spherical_ or cylindrical_ or multi_components
-    object_type = 'multi_circles'
+    object_type = 'multi_circles'#'spherical_object'#
     initial_type = object_type
     if B_field:
         periodic_field_solver = False     # Periodic or Dirichlet bcs
@@ -52,7 +52,7 @@ if with_object:
     dim = 2
     n_components = 4
     mesh, L = mesh_with_object(dim, n_components, object_type)
-    d = mesh.topology().dim()
+    d = mesh.geometry().dim()
 else:
     # Mesh dimensions: Omega = [l1, l2]X[w1, w2]X[h1, h2]
     d = 2              # Space dimension
@@ -122,7 +122,7 @@ q_i = Z*e        # Electric charge - ions
 w = (L[d]*L[d+1])/N_e  # Non-dimensionalization factor
 
 Bx = 0.0; By = 0.0; Bz = 5.0;
-vd_x = 0.4; vd_y = 0.0; dv_z = 0.0;
+vd_x = 0.4; vd_y = 0.0; vd_z = 0.0;
 
 if B_field and d == 2:
     B0 = [Bx, By]
@@ -162,17 +162,20 @@ if with_object:
 #-------------------------------------------------------------------------------
 
 if periodic_field_solver:
-    V, VV, W = periodic_bcs(mesh, L)
+    PBC = periodic_bcs(mesh, L)
+    V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+    VV = VectorFunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+    W = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 else:
     # Create dolfin function spaces
     V = FunctionSpace(mesh, "CG", 1)
     VV = VectorFunctionSpace(mesh, "CG", 1)
     W = VectorFunctionSpace(mesh, 'DG', 0)
     if B_field:
-        bcs_Dirichlet = dirichlet_bcs_B_field(E0, V, facet_f, n_components)
+        bcs_Dirichlet = dirichlet_bcs(V, facet_f, n_components, E0 = E0)
 
     else:
-        bcs_Dirichlet = dirichlet_bcs_zero_potential(V, facet_f, n_components)
+        bcs_Dirichlet = dirichlet_bcs(V, facet_f, n_components)
 
 
 #-------------------------------------------------------------------------------
@@ -186,15 +189,18 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i, mu_e, mu_i, sigma_e,
 #-------------------------------------------------------------------------------
 #         Create Krylov solver
 #-------------------------------------------------------------------------------
-solver = PETScKrylovSolver('gmres', 'hypre_amg')
-
-solver.parameters["absolute_tolerance"] = 1e-14
-solver.parameters["relative_tolerance"] = 1e-12
-solver.parameters["maximum_iterations"] = 1000
-#solver.parameters["monitor_convergence"] = True
-solver.parameters["convergence_norm_type"] = "true"
-#for item in solver.parameters.items(): print(item)
-solver.set_reuse_preconditioner(True)
+# solver = PETScKrylovSolver('gmres', 'hypre_amg')
+# solver.parameters["absolute_tolerance"] = 1e-14
+# solver.parameters["relative_tolerance"] = 1e-12
+# solver.parameters["maximum_iterations"] = 1000
+# #solver.parameters["monitor_convergence"] = True
+# solver.parameters["convergence_norm_type"] = "true"
+# #for item in solver.parameters.items(): print(item)
+# solver.set_reuse_preconditioner(True)
+if periodic_field_solver:
+    poisson = PoissonSolverPeriodic(V)
+else:
+    poisson = PoissonSolverDirichlet(V, bcs_Dirichlet)
 
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
@@ -208,13 +214,13 @@ lp.add_particles(initial_positions, initial_velocities, properties)
 #             The capacitance matrix of the object
 #-------------------------------------------------------------------------------
 if with_object:
-    inv_capacitance = capacitance_matrix(V, W, mesh, facet_f, n_components,
+    inv_capacitance = capacitance_matrix(V, mesh, facet_f, n_components,
                                          epsilon_0)
 
 #-------------------------------------------------------------------------------
 #          Circuit Components and Differential Biasing
 #-------------------------------------------------------------------------------
-with_circuits = True
+with_circuits = False
 if with_object and with_circuits:
     circuits_info = [[1, 3], [2, 4]]
     bias_1 = 0.1
@@ -287,11 +293,11 @@ for i, step in enumerate(range(tot_time)):
     if periodic_field_solver:
         # boundary_values = bc_object.get_boundary_values()
         # print("boundary_values: ", boundary_values)
-        phi = periodic_solver(rho, V, solver, bc_object)
-        E = electric_field(phi, W)
+        phi = poisson.solve(rho, bc_object)
+        E = electric_field(phi, PBC)
     else:
-        phi = dirichlet_solver(rho, V, bcs_Dirichlet, bc_object)
-        E = electric_field(phi, W)
+        phi = poisson.solve(rho, bc_object)
+        E = electric_field(phi)
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
     q_object = info[3]
