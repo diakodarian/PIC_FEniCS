@@ -1,11 +1,11 @@
-from __future__ import print_function
+from __future__ import print_function, division
+import sys
+if sys.version_info.major == 2:
+	from itertools import izip as zip
+	range = xrange
+
 from dolfin import *
 import numpy as np
-from mpi4py import MPI as pyMPI
-
-
-comm = pyMPI.COMM_WORLD
-rank = comm.Get_rank()
 
 def UnitHyperCube(divisions):
     mesh_classes = [UnitIntervalMesh, UnitSquareMesh, UnitCubeMesh]

@@ -1,10 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpi4py import MPI as pyMPI
-import sys
 import scipy.integrate as integrate
-
-comm = pyMPI.COMM_WORLD
+import sys
 
 def integration(u, mu, sigma):
     """

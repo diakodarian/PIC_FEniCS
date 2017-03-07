@@ -1,15 +1,12 @@
 from __future__ import print_function
-import sys
-sys.path.insert(0, '/home/diako/Documents/FEniCS')
 
-from LagrangianParticles import LagrangianParticles
-from Poisson_solver import periodic_solver, electric_field
-from initial_conditions import initial_conditions
-from mesh_types import simple_mesh
-from boundary_conditions import periodic_bcs
-import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
+from mesh_types import simple_mesh
+import sys
+sys.path.insert(0, '/home/diako/Documents/FEniCS')
+from src import *
+import matplotlib.pyplot as plt
 from mpi4py import MPI as pyMPI
 import itertools
 from scipy.fftpack import fft, rfft, irfft
@@ -97,7 +94,11 @@ mu_e = [mu_e_top, mu_e_bottom]
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
-V, VV, W = periodic_bcs(mesh, L)
+# V, VV, W = periodic_bcs(mesh, L)
+PBC = PeriodicBoundary([L[d],L[d+1]])
+V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+VV = VectorFunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
+W = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
 #-------------------------------------------------------------------------------
 #             Initialize particle positions and velocities
 #-------------------------------------------------------------------------------
@@ -108,16 +109,7 @@ initial_conditions(N_e, N_i, L, w, q_e, q_i, m_e, m_i, mu_e, mu_i, sigma_e,
 #-------------------------------------------------------------------------------
 #         Create Krylov solver
 #-------------------------------------------------------------------------------
-solver = PETScKrylovSolver('gmres', 'hypre_amg')
-
-solver.parameters["absolute_tolerance"] = 1e-14
-solver.parameters["relative_tolerance"] = 1e-12
-solver.parameters["maximum_iterations"] = 1000
-#solver.parameters["monitor_convergence"] = True
-solver.parameters["convergence_norm_type"] = "true"
-#for item in solver.parameters.items(): print(item)
-solver.set_reuse_preconditioner(True)
-
+poisson = PoissonSolverPeriodic(V)
 #-------------------------------------------------------------------------------
 #             Add particles to the mesh
 #-------------------------------------------------------------------------------
@@ -168,8 +160,8 @@ for i, step in enumerate(range(tot_time)):
     # Source term (charge density)
     f = Function(V)
     rho, q_rho = lp.charge_density(f, components_vertices)
-    phi = periodic_solver(rho, V, solver, None)
-    E = electric_field(phi, W)
+    phi = poisson.solve(rho)
+    E = electric_field(phi)
 
     info = lp.step(E, J_e, J_i, i, q_object, dt, B0)
 

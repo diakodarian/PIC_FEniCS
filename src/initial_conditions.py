@@ -1,14 +1,14 @@
 from __future__ import print_function
-from particle_distribution import speed_distribution
-from particle_distribution import hist_plot
-import matplotlib.pyplot as plt
-from dolfin import *
-import numpy as np
-from mpi4py import MPI as pyMPI
-from pynverse import inversefunc
 from LagrangianParticles import RandomBox, RandomSphere
 from LagrangianParticles import RandomCircle, RandomRectangle
+from particle_distribution import speed_distribution
+from particle_distribution import hist_plot
+from dolfin import *
+import numpy as np
+from pynverse import inversefunc
+import matplotlib.pyplot as plt
 import sys
+from mpi4py import MPI as pyMPI
 
 comm = pyMPI.COMM_WORLD
 
@@ -382,41 +382,19 @@ def random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
 
     return e_velocity, i_velocity
 
-def two_stream_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i, L,
-                          initial_positions):
-    d = len(mu_i)
-    e_velocity = np.empty((n_electrons,d))
-    i_velocity = np.empty((n_ions,d))
-    for i in range(d):
-        i_velocity[:,i] = np.random.normal(mu_i[i], sigma_i[i], n_ions)
+def two_stream_velocities(n_electrons, n_ions, mu_e, L, initial_positions):
+    d = len(L)/2
+    e_velocity = np.zeros((n_electrons,d))
+    i_velocity = np.zeros((n_ions,d))
 
     pos_e = initial_positions[:n_electrons]
-    s1 = 0
-    s2 = 0
     for i in range(n_electrons):
         if pos_e[i,d-1] >= L[d+1]/2.:
-            s1 +=1
             for j in range(d):
-                e_velocity[i, j] = np.random.normal(mu_e[0][j], sigma_e[j])
+                e_velocity[i, j] = mu_e[0][j]
         elif pos_e[i,d-1] < L[d+1]/2.:
-            s2 += 1
             for j in range(d):
-                e_velocity[i, j] = np.random.normal(mu_e[1][j], sigma_e[j])
-
-    # vel_top = np.empty((s1,d))
-    # vel_bottom = np.empty((s2,d))
-    # s1 = 0
-    # s2 = 0
-    # for i in range(n_electrons):
-    #     if pos_e[i,d-1] >= L[d+1]/2.:
-    #         vel_top[s1,:] = e_velocity[i, :]
-    #         s1 += 1
-    #     elif pos_e[i,d-1] < L[d+1]/2.:
-    #         vel_bottom[s2,:] = e_velocity[i, :]
-    #         s2 += 1
-    # print(vel_top)
-    # #speed_distribution(vel_top, mu_e[0], sigma_e)
-    # # speed_distribution(vel_bottom, mu_e[1], sigma_e)
+                e_velocity[i, j] = mu_e[1][j]
     return e_velocity, i_velocity
 
 def object_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i):
@@ -444,10 +422,7 @@ def intialize_particle_velocities(n_electrons, n_ions, L,
         random_velocities(n_electrons, n_ions, mu_e, mu_i, sigma_e, sigma_i)
     if initial_type == 'two_stream':
         initial_electron_velocities, initial_ion_velocities = \
-        two_stream_velocities(n_electrons, n_ions,
-                              mu_e, mu_i,
-                              sigma_e, sigma_i,
-                              L, initial_positions)
+        two_stream_velocities(n_electrons, n_ions, mu_e, L, initial_positions)
     if initial_type == 'Langmuir_waves':
         initial_electron_velocities, initial_ion_velocities = \
         Langmuir_waves_velocities(d, n_electrons, n_ions)
