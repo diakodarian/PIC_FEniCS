@@ -99,7 +99,8 @@ def electric_field(phi, constr = None):
             E = -\del\varPhi
 
     Args:
-          phi: The electric potential.
+          phi   : The electric potential.
+          constr: constrained_domain
 
     returns:
           E: The electric field.
@@ -107,10 +108,7 @@ def electric_field(phi, constr = None):
     V = phi.function_space()
     mesh = V.mesh()
     degree = V.ufl_element().degree()
-    if constr is None:
-        W = VectorFunctionSpace(mesh, 'CG', degree)
-    else:
-        W = VectorFunctionSpace(mesh, 'CG', degree, constrained_domain=constr)
+    W = VectorFunctionSpace(mesh, 'CG', degree, constrained_domain=constr)
     return project(-1*grad(phi), W)
 
 if __name__=='__main__':

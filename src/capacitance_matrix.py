@@ -40,7 +40,7 @@ def solve_electric_field(V, facet_f, n_components, outer_Dirichlet_bcs):
         rho = Function(V)
         phi = poisson.solve(rho, object_bcs)
         E = electric_field(phi)
-        plot(phi, interactive=True)
+        #plot(phi, interactive=True)
         E_object.append(E)
 
     return E_object
@@ -164,7 +164,7 @@ if __name__=='__main__':
 
     circuits_info = [[1, 3], [2, 4]]
 
-    mesh = Mesh("demos/mesh/circuit.xml")
+    mesh = Mesh("../demos/mesh/circuit.xml")
     V = FunctionSpace(mesh, "CG", 1)
 
     d = mesh.geometry().dim()
