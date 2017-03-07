@@ -1,9 +1,10 @@
-from __future__ import print_function
-from dolfin import *
-from mpi4py import MPI as pyMPI
+from __future__ import print_function, division
+import sys
+if sys.version_info.major == 2:
+	from itertools import izip as zip
+	range = xrange
 
-comm = pyMPI.COMM_WORLD
-rank = comm.Get_rank()
+from dolfin import *
 
 def near(x, y, tol=1e-8):
     if abs(x-y)<tol:
@@ -11,86 +12,21 @@ def near(x, y, tol=1e-8):
     else:
         return False
 
-def periodic_bcs(mesh, l):
-    # Sub domain for 2d Periodic boundary condition
-    class PeriodicBoundary2D(SubDomain):
+class PeriodicBoundary(SubDomain):
 
-        def __init__(self, L):
-            SubDomain.__init__(self)
-            self.Lx_left = L[0]
-            self.Lx_right = L[2]
-            self.Ly_left = L[1]
-            self.Ly_right = L[3]
+	def __init__(self, Ld):
+		SubDomain.__init__(self)
+		self.Ld = Ld
 
-        def inside(self, x, on_boundary):
-            return bool((near(x[0], self.Lx_left) or near(x[1], self.Ly_left)) and
-                   (not((near(x[0], self.Lx_left) and near(x[1], self.Ly_right)) or
-                        (near(x[0], self.Lx_right) and near(x[1], self.Ly_left)))) and on_boundary)
+	# Target domain
+	def inside(self, x, onBnd):
+		return bool(		any([near(a,0) for a in x])					# On any lower bound
+					and not any([near(a,b) for a,b in zip(x,self.Ld)])	# But not any upper bound
+					and onBnd)
 
-        def map(self, x, y):
-            if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-            elif near(x[0],  self.Lx_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1]
-            else:
-                y[0] = x[0]
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-
-    # Sub domain for 3d Periodic boundary condition
-    class PeriodicBoundary3D(SubDomain):
-
-        def __init__(self, L):
-            SubDomain.__init__(self)
-            self.Lx_left = L[0]
-            self.Lx_right = L[3]
-            self.Ly_left = L[1]
-            self.Ly_right = L[4]
-            self.Lz_left = L[2]
-            self.Lz_right = L[5]
-        # Left boundary is "target domain" G
-        def inside(self, x, on_boundary):
-            return bool( ( near(x[0], self.Lx_left) or near(x[1], self.Ly_left) or near(x[2], self.Lz_left) ) and
-                   (not( near(x[0], self.Lx_right) and near(x[1], self.Ly_right) and near(x[2], self.Lz_right) )) and on_boundary)
-
-        def map(self, x, y):
-            if near(x[0],  self.Lx_right) and near(x[1], self.Ly_right) and near(x[2], self.Lz_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-                y[2] = x[2] - (self.Lz_right - self.Lz_left)
-            elif near(x[0],  self.Lx_right) and near(x[1], self.Ly_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-                y[2] = x[2]
-            elif near(x[1],  self.Ly_right) and near(x[2], self.Lz_right):
-                y[0] = x[0]
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-                y[2] = x[2] - (self.Lz_right - self.Lz_left)
-            elif near(x[1],  self.Ly_right):
-                y[0] = x[0]
-                y[1] = x[1] - (self.Ly_right - self.Ly_left)
-                y[2] = x[2]
-            elif near(x[0],  self.Lx_right) and near(x[2], self.Lz_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1]
-                y[2] = x[2] - (self.Ly_right - self.Ly_left)
-            elif near(x[0],  self.Lx_right):
-                y[0] = x[0] - (self.Lx_right - self.Lx_left)
-                y[1] = x[1]
-                y[2] = x[2]
-            else:
-                y[0] = x[0]
-                y[1] = x[1]
-                y[2] = x[2] - (self.Lz_right - self.Lz_left)
-
-    # Create boundary and finite element
-    geo_dim = mesh.geometry().dim()
-    if geo_dim == 2:
-        PBC = PeriodicBoundary2D(l)
-    if geo_dim == 3:
-        PBC = PeriodicBoundary3D(l)
-    return PBC
+	# Map upper edges to lower edges
+	def map(self, x, y):
+		y[:] = [a-b if near(a,b) else a for a,b in zip(x,self.Ld)]
 
 def dirichlet_bcs(V, facet_f, n_components = 0, phi0 = Constant(0.0), E0 = None):
 

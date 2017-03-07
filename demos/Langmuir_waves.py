@@ -86,7 +86,7 @@ for i in range(d):
 #-------------------------------------------------------------------------------
 #                       Create boundary conditions
 #-------------------------------------------------------------------------------
-PBC = periodic_bcs(mesh, L)
+PBC = PeriodicBoundary([L[d],L[d+1]])#periodic_bcs(mesh, L)
 V = FunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
 VV = VectorFunctionSpace(mesh, "CG", 1, constrained_domain=PBC)
 W = VectorFunctionSpace(mesh, 'DG', 0, constrained_domain=PBC)
