@@ -1,23 +1,15 @@
 from __future__ import print_function
-import sys
-sys.path.insert(0, '/home/diako/Documents/FEniCS')
 
-from LagrangianParticles import LagrangianParticles
-from Poisson_solver import *
-from initial_conditions import initial_conditions
-from particle_distribution import speed_distribution
-from mesh_types import *
-from capacitance_matrix import capacitance_matrix, circuits
-from boundary_conditions import *
-from mark_object import *
-from get_object import *
-from particle_injection import initialize_particle_injection
-import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
+from get_object import *
+from mesh_types import *
+import sys
+sys.path.insert(0, '/home/diako/Documents/FEniCS')
+from src import *
+import matplotlib.pyplot as plt
 from mpi4py import MPI as pyMPI
 import itertools
-import sys
 
 comm = pyMPI.COMM_WORLD
 

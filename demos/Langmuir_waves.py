@@ -1,15 +1,12 @@
 from __future__ import print_function
-import sys
-sys.path.insert(0, '/home/diako/Documents/FEniCS')
 
-from LagrangianParticles import LagrangianParticles
-from Poisson_solver import *
-from initial_conditions import initial_conditions
-from mesh_types import simple_mesh
-from boundary_conditions import periodic_bcs
-import matplotlib.pyplot as plt
 from dolfin import *
 import numpy as np
+from mesh_types import simple_mesh
+import sys
+sys.path.insert(0, '/home/diako/Documents/FEniCS')
+from src import *
+import matplotlib.pyplot as plt
 from mpi4py import MPI as pyMPI
 import itertools
 
